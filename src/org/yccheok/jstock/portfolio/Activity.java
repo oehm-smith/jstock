@@ -30,26 +30,15 @@ import org.yccheok.jstock.engine.Stock;
  */
 public class Activity {
     public enum Param {
-        Stock,
         StockInfo,
         Quantity        
     }
 
     public enum Type {
-        Deposit("/images/16x16/money.png"),
-        Buy("/images/16x16/inbox.png"),
-        Sell("/images/16x16/outbox.png"),
-        Dividend("/images/16x16/money2.png");
-
-        Type(String fileName) {
-            this.icon = new javax.swing.ImageIcon(this.getClass().getResource(fileName));
-        }
-
-        public ImageIcon getIcon() {
-            return icon;
-        }
-
-        private ImageIcon icon;
+        Deposit,
+        Buy,
+        Sell,
+        Dividend;
     }
 
     public static class Builder {
@@ -89,17 +78,6 @@ public class Activity {
 
     public double getAmount() {
         return this.amount;
-    }
-
-    @Override
-    public String toString() {
-        Stock stock = (Stock)this.get(Param.Stock);
-
-        if (stock != null) {
-            return stock.symbol.toString() + " " + type.toString().toLowerCase() + " " + Utils.toCurrencyWithSymbol(DecimalPlaces.Three, amount);
-        }
-
-        return type.toString().toLowerCase() + " " + Utils.toCurrencyWithSymbol(DecimalPlaces.Three, amount);
     }
 
     private final Type type;

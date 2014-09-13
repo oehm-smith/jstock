@@ -19,18 +19,21 @@
 
 package org.yccheok.jstock.gui;
 
-import java.awt.FlowLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import javax.swing.*;
 import java.text.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import javax.swing.*;
 import javax.swing.text.*;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.yccheok.jstock.engine.Country;
-import org.yccheok.jstock.engine.StockServerFactory;
+import org.yccheok.jstock.engine.PriceSource;
 import org.yccheok.jstock.internationalization.GUIBundle;
 import org.yccheok.jstock.internationalization.MessagesBundle;
 import org.yccheok.jstock.network.ProxyDetector;
@@ -153,67 +156,16 @@ public class OptionsNetworkJPanel extends javax.swing.JPanel implements JStockOp
         return worker;
     }
 
-    private void initJRadioButtons(JStockOptions jStockOptions) {
+    private void initJComboBox(JStockOptions jStockOptions) {
         final Country country = jStockOptions.getCountry();
-        final java.util.List<StockServerFactory> stockServerFactories = MainFrame.getInstance().getStockServerFactories();
-        final JLabel label = new JLabel();
-
-        boolean selected = false;
-        StockServerFactoryJRadioButton first = null;
-
-        // First, ensure we have correct GUI layout.
-        // +1 for label.
-        jPanel5.setLayout(new java.awt.GridLayout(stockServerFactories.size() + 1, 1, 5, 5));
         
-        for (StockServerFactory stockServerFactory : stockServerFactories) {
-            final StockServerFactoryJRadioButton stockServerJRadioButton = new StockServerFactoryJRadioButton(stockServerFactory);
-            
-            if (first == null) {
-                first = stockServerJRadioButton;
-            }
-
-            stockServerJRadioButton.addActionListener(new ActionListener() {
-
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    final String text = MessageFormat.format(GUIBundle.getString("OptionsNetworkJPanel_IsBeingUsedAsPrimaryServer_template"), StockServerFactoryJRadioButton.toReadableText(stockServerJRadioButton.getStockServerFactory()));
-                    label.setText(text);
-                }
-                
-            });
-
-            if (stockServerFactory.getClass() == jStockOptions.getPrimaryStockServerFactoryClass(country)) {
-                selected = true;
-                stockServerJRadioButton.setSelected(true);
-                final String text = MessageFormat.format(GUIBundle.getString("OptionsNetworkJPanel_IsBeingUsedAsPrimaryServer_template"), StockServerFactoryJRadioButton.toReadableText(stockServerJRadioButton.getStockServerFactory()));
-                label.setText(text);
-            }
-            this.buttonGroup1.add(stockServerJRadioButton);
-            final JPanel jPanel = new JPanel();
-            final FlowLayout layout = new FlowLayout();
-            layout.setAlignment(FlowLayout.LEFT);
-            layout.setHgap(0);
-            layout.setVgap(0);
-            jPanel.setLayout(layout);
-            // Instead of placing stockServerJRadioButton on jPanel5 directly, 
-            // we places it on a FlowLayout panel. This is the prevent 
-            // stockServerJRadioButton width being extended to the left end of
-            // window.
-            jPanel.add(stockServerJRadioButton);
-            jPanel5.add(jPanel);
+        for (String entry : getPriceSourceEntries(country)) {
+            jComboBox1.addItem(entry);
         }
-
-        if (selected == false) {
-            if (first != null) {
-                first.setSelected(true);
-                final String text = MessageFormat.format(GUIBundle.getString("OptionsNetworkJPanel_IsBeingUsedAsPrimaryServer_template"), StockServerFactoryJRadioButton.toReadableText(first.getStockServerFactory()));
-                label.setText(text);
-            }
-        }
-        
-        jPanel5.add(label);
+        PriceSource priceSource = jStockOptions.getPriceSource(country);
+        this.jComboBox1.setSelectedItem(priceSourceEntries.get(priceSource.name()));
     }
-
+    
     private JFormattedTextField getPortNumberJFormattedTextField() {
         DecimalFormat df = new DecimalFormat("#####");
         NumberFormatter nf = new NumberFormatter(df) {
@@ -248,11 +200,10 @@ public class OptionsNetworkJPanel extends javax.swing.JPanel implements JStockOp
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        buttonGroup1 = new javax.swing.ButtonGroup();
         jXHeader1 = new org.jdesktop.swingx.JXHeader();
         jPanel1 = new javax.swing.JPanel();
         jPanel4 = new javax.swing.JPanel();
-        jPanel5 = new javax.swing.JPanel();
+        jComboBox1 = new javax.swing.JComboBox();
         jPanel6 = new javax.swing.JPanel();
         jPanel3 = new javax.swing.JPanel();
         jCheckBox1 = new javax.swing.JCheckBox();
@@ -280,25 +231,10 @@ public class OptionsNetworkJPanel extends javax.swing.JPanel implements JStockOp
         jXHeader1.setTitle(bundle.getString("OptionsNetworkJPanel_ProxyServer")); // NOI18N
         add(jXHeader1, java.awt.BorderLayout.NORTH);
 
-        jPanel4.setBorder(javax.swing.BorderFactory.createTitledBorder(bundle.getString("OptionsNetworkJPanel_StockServer"))); // NOI18N
+        jPanel4.setBorder(javax.swing.BorderFactory.createTitledBorder(bundle.getString("OptionsNetworkJPanel_PriceSource"))); // NOI18N
+        jPanel4.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT));
 
-        jPanel5.setLayout(new java.awt.GridLayout(3, 1, 5, 5));
-
-        javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
-        jPanel4.setLayout(jPanel4Layout);
-        jPanel4Layout.setHorizontalGroup(
-            jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel4Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, 447, Short.MAX_VALUE)
-                .addContainerGap())
-        );
-        jPanel4Layout.setVerticalGroup(
-            jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel4Layout.createSequentialGroup()
-                .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, 56, Short.MAX_VALUE)
-                .addContainerGap())
-        );
+        jPanel4.add(jComboBox1);
 
         jPanel6.setBorder(javax.swing.BorderFactory.createTitledBorder(bundle.getString("OptionsNetworkJPanel_ProxyServer"))); // NOI18N
 
@@ -329,7 +265,7 @@ public class OptionsNetworkJPanel extends javax.swing.JPanel implements JStockOp
                             .addComponent(jLabel6))
                         .addGap(27, 27, 27)
                         .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(jPasswordField1, 0, 0, Short.MAX_VALUE)
+                            .addComponent(jPasswordField1, 0, 1, Short.MAX_VALUE)
                             .addComponent(jTextField2, javax.swing.GroupLayout.PREFERRED_SIZE, 108, javax.swing.GroupLayout.PREFERRED_SIZE))))
                 .addContainerGap(242, Short.MAX_VALUE))
         );
@@ -509,7 +445,7 @@ public class OptionsNetworkJPanel extends javax.swing.JPanel implements JStockOp
         this.jCheckBox1.setSelected(jStockOptions.isProxyAuthEnabled());
         this.jTextField2.setText(jStockOptions.getProxyAuthUserName());
         this.jPasswordField1.setText(Utils.decrypt(jStockOptions.getProxyAuthPassword()));
-        initJRadioButtons(jStockOptions);
+        initJComboBox(jStockOptions);
 
         updateGUIState();
     }
@@ -542,14 +478,13 @@ public class OptionsNetworkJPanel extends javax.swing.JPanel implements JStockOp
         jStockOptions.setIsProxyAuthEnabled(this.jCheckBox1.isSelected());
         jStockOptions.setProxyAuthUserName(jTextField2.getText());
         jStockOptions.setProxyAuthPassword(Utils.encrypt(new String(jPasswordField1.getPassword())));
-
-        JRadioButton tmp = org.yccheok.jstock.gui.Utils.getSelection(this.buttonGroup1);
-        // Impossible. Just to be paranoid.
-        if (tmp != null) {
-            StockServerFactoryJRadioButton button = ((StockServerFactoryJRadioButton)tmp);
-            MainFrame.getInstance().updatePrimaryStockServerFactory(jStockOptions.getCountry(), button.getStockServerFactory().getClass());
-        }
-
+        
+        Country country = jStockOptions.getCountry();
+        String priceSourceName = getPriceSourceEntryValues(country)[this.jComboBox1.getSelectedIndex()];
+        PriceSource priceSource = PriceSource.valueOf(priceSourceName);
+        
+        jStockOptions.setPriceSource(country, priceSource);
+                
         return true;
     }
 
@@ -577,15 +512,40 @@ public class OptionsNetworkJPanel extends javax.swing.JPanel implements JStockOp
         jLabel7.setVisible(!isTestConnectionDone);
     }
 
+    private static String[] getPriceSourceEntries(Country country) {
+        String[] values = getPriceSourceEntryValues(country);
+        List<String> entries = new ArrayList<String>();
+        for (String value : values) {
+            entries.add(priceSourceEntries.get(value));
+        }
+        return entries.toArray(new String[entries.size()]);
+    }
+
+    private static String[] getPriceSourceEntryValues(Country country) {
+        Set<PriceSource> priceSources = org.yccheok.jstock.engine.Utils.getSupportedPriceSources(country);
+        TreeSet<String> treeSet = new TreeSet<String>();
+        for (PriceSource priceSource : priceSources) {
+            treeSet.add(priceSource.name());
+        }
+        return treeSet.toArray(new String[treeSet.size()]);
+    }
+    
     private static final Log log = LogFactory.getLog(OptionsNetworkJPanel.class);
 
     private volatile SwingWorker testConnectionSwingWorker = null;
 
+    private static final Map<String, String> priceSourceEntries = new HashMap<String, String>();
+    static {
+        priceSourceEntries.put(PriceSource.Yahoo.name(), GUIBundle.getString("OptionsNetworkJPanel_YahooFinance"));
+        priceSourceEntries.put(PriceSource.Google.name(), GUIBundle.getString("OptionsNetworkJPanel_GoogleFinance"));
+        priceSourceEntries.put(PriceSource.KLSEInfo.name(), GUIBundle.getString("OptionsNetworkJPanel_KLSEInfo"));
+    }
+    
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.ButtonGroup buttonGroup1;
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
     private javax.swing.JCheckBox jCheckBox1;
+    private javax.swing.JComboBox jComboBox1;
     private javax.swing.JFormattedTextField jFormattedTextField1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
@@ -598,7 +558,6 @@ public class OptionsNetworkJPanel extends javax.swing.JPanel implements JStockOp
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
-    private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
     private javax.swing.JPanel jPanel7;
     private javax.swing.JPasswordField jPasswordField1;

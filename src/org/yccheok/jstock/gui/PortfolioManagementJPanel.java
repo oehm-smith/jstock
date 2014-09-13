@@ -45,7 +45,6 @@ import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
-
 import javax.swing.JTable;
 import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
@@ -55,9 +54,8 @@ import org.apache.commons.logging.*;
 import org.jdesktop.swingx.JXTableHeader;
 import org.jdesktop.swingx.JXTreeTable;
 import org.jdesktop.swingx.table.TableColumnExt;
-import org.yccheok.jstock.portfolio.*;
-import org.yccheok.jstock.engine.*;
 import org.jdesktop.swingx.treetable.*;
+import org.yccheok.jstock.engine.*;
 import org.yccheok.jstock.file.GUIBundleWrapper;
 import org.yccheok.jstock.file.Statement;
 import org.yccheok.jstock.file.Statements;
@@ -77,6 +75,7 @@ import org.yccheok.jstock.gui.treetable.SellPortfolioTreeTableModelEx;
 import org.yccheok.jstock.gui.treetable.SortableTreeTable;
 import org.yccheok.jstock.internationalization.GUIBundle;
 import org.yccheok.jstock.internationalization.MessagesBundle;
+import org.yccheok.jstock.portfolio.*;
 
 /**
  *
@@ -320,7 +319,7 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
         List<Stock> stocks = getSelectedStocks();
         if (stocks.size() == 1) {
-            this.showNewBuyTransactionJDialog(stocks.get(0), this.getStockPrice(stocks.get(0)), true);
+            this.showNewBuyTransactionJDialog(stocks.get(0), this.getStockPrice(stocks.get(0).code), true);
         } else {
             this.showNewBuyTransactionJDialog(null, 0.0, true);
         }
@@ -476,7 +475,7 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
 
                         Stock stock = null;
                         if (_code.length() > 0 && _symbol.length() > 0) {
-                            stock = Utils.getEmptyStock(Code.newInstance(_code), Symbol.newInstance(_symbol));
+                            stock = org.yccheok.jstock.engine.Utils.getEmptyStock(Code.newInstance(_code), Symbol.newInstance(_symbol));
                         }
                         else {
                             log.error("Unexpected empty stock. Ignore");
@@ -614,7 +613,7 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
 
                         Stock stock = null;
                         if (_code.length() > 0 && _symbol.length() > 0) {
-                            stock = Utils.getEmptyStock(Code.newInstance(_code), Symbol.newInstance(_symbol));
+                            stock = org.yccheok.jstock.engine.Utils.getEmptyStock(Code.newInstance(_code), Symbol.newInstance(_symbol));
                         }
                         else {
                             log.error("Unexpected empty stock. Ignore");
@@ -942,9 +941,9 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
         return Collections.unmodifiableList(stocks);
     }
     
-    public double getStockPrice(Stock stock) {
+    public double getStockPrice(Code code) {
         final BuyPortfolioTreeTableModelEx buyPortfolioTreeTableModel = (BuyPortfolioTreeTableModelEx)buyTreeTable.getTreeTableModel();
-        return buyPortfolioTreeTableModel.getStockPrice(stock.code);
+        return buyPortfolioTreeTableModel.getStockPrice(code);
     }
 
     private void showNewSellTransactionJDialog(List<Transaction> buyTransactions) {
@@ -1510,10 +1509,10 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
             public void actionPerformed(ActionEvent evt) {
                 List<Stock> stocks = getSelectedStocks();
                 if (stocks.size() == 1) {
-                    PortfolioManagementJPanel.this.showNewBuyTransactionJDialog(stocks.get(0), PortfolioManagementJPanel.this.getStockPrice(stocks.get(0)), true);
+                    PortfolioManagementJPanel.this.showNewBuyTransactionJDialog(stocks.get(0), PortfolioManagementJPanel.this.getStockPrice(stocks.get(0).code), true);
                 }
                 else {
-                    PortfolioManagementJPanel.this.showNewBuyTransactionJDialog(Utils.getEmptyStock(Code.newInstance(""), Symbol.newInstance("")), 0.0, true);
+                    PortfolioManagementJPanel.this.showNewBuyTransactionJDialog(org.yccheok.jstock.engine.Utils.getEmptyStock(Code.newInstance(""), Symbol.newInstance("")), 0.0, true);
                 }
             }
         });
@@ -2256,19 +2255,10 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
         return saveCSVPortfolio();
     }
 
-    public void updatePrimaryStockServerFactory(java.util.List<StockServerFactory> stockServerFactories) {
-        if (realTimeStockMonitor != null) {
-            realTimeStockMonitor.setStockServerFactories(stockServerFactories);
-        }
-        if (currencyExchangeMonitor != null) {
-            currencyExchangeMonitor.setStockServerFactories(stockServerFactories);
-        }
-    }
-
     /**
      * Initializes currency exchange monitor.
      */
-    public void initCurrencyExchangeMonitor(java.util.List<StockServerFactory> stockServerFactories) {
+    public void initCurrencyExchangeMonitor() {
         final MainFrame mainFrame = MainFrame.getInstance();
         final JStockOptions jStockOptions = mainFrame.getJStockOptions();
 
@@ -2310,7 +2300,6 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
         }
 
         currencyExchangeMonitor = new CurrencyExchangeMonitor(fromCountry, toCountry);
-        currencyExchangeMonitor.setStockServerFactories(stockServerFactories);
         currencyExchangeMonitor.attach(currencyExchangeMonitorObserver);
 
         // Update the tool tip text.
@@ -2329,7 +2318,7 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
         this.updateWealthHeader();
     }
 
-    public void initRealTimeStockMonitor(java.util.List<StockServerFactory> stockServerFactories) {
+    public void initRealTimeStockMonitor() {
         final RealTimeStockMonitor oldRealTimeStockMonitor = realTimeStockMonitor;
         if (oldRealTimeStockMonitor != null) {            
             Utils.getZoombiePool().execute(new Runnable() {
@@ -2344,8 +2333,10 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
             });
         }
         
-        realTimeStockMonitor = new RealTimeStockMonitor(4, 20, MainFrame.getInstance().getJStockOptions().getScanningSpeed());
-        realTimeStockMonitor.setStockServerFactories(stockServerFactories);
+        realTimeStockMonitor = new RealTimeStockMonitor(
+                Constants.REAL_TIME_STOCK_MONITOR_MAX_THREAD, 
+                Constants.REAL_TIME_STOCK_MONITOR_MAX_STOCK_SIZE_PER_SCAN, 
+                MainFrame.getInstance().getJStockOptions().getScanningSpeed());
         
         realTimeStockMonitor.attach(this.realTimeStockMonitorObserver);
         
@@ -2674,6 +2665,13 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
         RealTimeStockMonitor _realTimeStockMonitor = this.realTimeStockMonitor;
         if (_realTimeStockMonitor != null) {
             _realTimeStockMonitor.refresh();
+        }
+    }
+    
+    public void rebuildRealTimeStockMonitor() {
+        RealTimeStockMonitor _realTimeStockMonitor = this.realTimeStockMonitor;
+        if (_realTimeStockMonitor != null) {
+            _realTimeStockMonitor.rebuild();
         }
     }
     

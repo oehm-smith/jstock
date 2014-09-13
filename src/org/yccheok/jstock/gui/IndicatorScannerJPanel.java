@@ -19,26 +19,26 @@
 
 package org.yccheok.jstock.gui;
 
-import org.yccheok.jstock.alert.GoogleMail;
-import org.yccheok.jstock.alert.GoogleCalendar;
-import javax.mail.MessagingException;
-import javax.mail.internet.AddressException;
-import javax.swing.event.*;
 import com.nexes.wizard.*;
-import javax.swing.*;
 import java.awt.event.*;
 import java.io.File;
 import java.text.MessageFormat;
-import javax.swing.table.*;
 import java.util.*;
-import org.yccheok.jstock.engine.*;
-import org.yccheok.jstock.analysis.*;
 import java.util.concurrent.*;
 
+import javax.mail.MessagingException;
+import javax.mail.internet.AddressException;
+import javax.swing.*;
+import javax.swing.event.*;
+import javax.swing.table.*;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.yccheok.jstock.alert.GoogleCalendar;
+import org.yccheok.jstock.alert.GoogleMail;
 import org.yccheok.jstock.alert.SMSLimiter;
+import org.yccheok.jstock.analysis.*;
 import org.yccheok.jstock.analysis.Indicator;
+import org.yccheok.jstock.engine.*;
 import org.yccheok.jstock.internationalization.GUIBundle;
 
 /**
@@ -60,8 +60,8 @@ public class IndicatorScannerJPanel extends javax.swing.JPanel implements Change
         writer = readWriteLock.writeLock();
 
         // Get ready with all the data structures when pressing "start".
-        initRealTimeStockMonitor(MainFrame.getInstance().getStockServerFactories());
-        initStockHistoryMonitor(MainFrame.getInstance().getStockServerFactories());
+        initRealTimeStockMonitor();
+        initStockHistoryMonitor();
         initAlertDataStructures();
         initCompleteProgressDataStructures();
     }
@@ -248,7 +248,7 @@ public class IndicatorScannerJPanel extends javax.swing.JPanel implements Change
                 final OperatorIndicator operatorIndicator = alertIndicatorProjectManager.getOperatorIndicator(project);
 
                 if (operatorIndicator != null) {
-                    final Stock stock = Utils.getEmptyStock(stockInfo);
+                    final Stock stock = org.yccheok.jstock.engine.Utils.getEmptyStock(stockInfo);
 
                     operatorIndicator.setStock(stock);
 
@@ -474,9 +474,8 @@ public class IndicatorScannerJPanel extends javax.swing.JPanel implements Change
                     final String template = bundle.getString("IndicatorScannerJPanel_Hit_template");
                     final String message = MessageFormat.format(template, stock.symbol, price, indicator.toString());
 
-                    final String username = Utils.decrypt(jStockOptions.getGoogleCalendarUsername());
                     if (SMSLimiter.INSTANCE.isSMSAllowed()) {
-                        final boolean status = GoogleCalendar.SMS(username, Utils.decrypt(jStockOptions.getGoogleCalendarPassword()), message);
+                        final boolean status = GoogleCalendar.SMS(message);
                         if (status) {
                             SMSLimiter.INSTANCE.inc();
                         }
@@ -545,9 +544,8 @@ public class IndicatorScannerJPanel extends javax.swing.JPanel implements Change
     
     public void clear()
     {
-        final MainFrame m = MainFrame.getInstance();
-        this.initRealTimeStockMonitor(m.getStockServerFactories());
-        this.initStockHistoryMonitor(m.getStockServerFactories());
+        this.initRealTimeStockMonitor();
+        this.initStockHistoryMonitor();
 
         this.operatorIndicators.clear();
         // Ask help from dirty flag, so that background thread won't have
@@ -555,7 +553,8 @@ public class IndicatorScannerJPanel extends javax.swing.JPanel implements Change
         allowIndicatorShown = false;
         
         removeAllIndicatorsFromTable();
-
+        
+        final MainFrame m = MainFrame.getInstance();
         m.setStatusBar(false, GUIBundle.getString("IndicatorScannerJPanel_Connected"));
     }
     
@@ -580,8 +579,8 @@ public class IndicatorScannerJPanel extends javax.swing.JPanel implements Change
                 }
             }
             final MainFrame m = MainFrame.getInstance();
-            this.initRealTimeStockMonitor(m.getStockServerFactories());
-            this.initStockHistoryMonitor(m.getStockServerFactories());
+            this.initRealTimeStockMonitor();
+            this.initStockHistoryMonitor();
             this.initAlertDataStructures();
             this.initCompleteProgressDataStructures();
         } finally {
@@ -627,7 +626,7 @@ public class IndicatorScannerJPanel extends javax.swing.JPanel implements Change
         this.realTimeStockMonitor.setDelay(speed);
     }
 
-    public final void initStockHistoryMonitor(java.util.List<StockServerFactory> stockServerFactories) {
+    public final void initStockHistoryMonitor() {
         final StockHistoryMonitor oldStockHistoryMonitor = stockHistoryMonitor;
         if (oldStockHistoryMonitor != null) {            
             Utils.getZoombiePool().execute(new Runnable() {
@@ -643,7 +642,6 @@ public class IndicatorScannerJPanel extends javax.swing.JPanel implements Change
         }
 
         this.stockHistoryMonitor = new StockHistoryMonitor(HISTORY_MONITOR_MAX_THREAD);
-        stockHistoryMonitor.setStockServerFactories(stockServerFactories);
 
         stockHistoryMonitor.attach(stockHistoryMonitorObserver);
         stockHistoryMonitor.setStockHistorySerializer(new StockHistorySerializer(Utils.getHistoryDirectory()));
@@ -730,16 +728,6 @@ public class IndicatorScannerJPanel extends javax.swing.JPanel implements Change
         };
     }
 
-    public void updatePrimaryStockServerFactory(java.util.List<StockServerFactory> stockServerFactories) {
-        if (realTimeStockMonitor != null) {
-            realTimeStockMonitor.setStockServerFactories(stockServerFactories);
-        }
-
-        if (stockHistoryMonitor != null) {
-            stockHistoryMonitor.setStockServerFactories(stockServerFactories);
-        }
-    }
-
     // Initializes data structure used for complete progress calculation.
     private void initCompleteProgressDataStructures() {
         Set<Code> oldSuccessCodes = successCodes;
@@ -813,7 +801,7 @@ public class IndicatorScannerJPanel extends javax.swing.JPanel implements Change
         systemTrayAlertPool = Executors.newFixedThreadPool(1);
     }
 
-    public final void initRealTimeStockMonitor(java.util.List<StockServerFactory> stockServerFactories) {
+    public final void initRealTimeStockMonitor() {
         final RealTimeStockMonitor oldRealTimeStockMonitor = this.realTimeStockMonitor;
         if (oldRealTimeStockMonitor != null) {            
             Utils.getZoombiePool().execute(new Runnable() {
@@ -828,8 +816,10 @@ public class IndicatorScannerJPanel extends javax.swing.JPanel implements Change
             });
         }
         
-        this.realTimeStockMonitor = new RealTimeStockMonitor(4, 20, MainFrame.getInstance().getJStockOptions().getScanningSpeed());
-        this.realTimeStockMonitor.setStockServerFactories(stockServerFactories);
+        this.realTimeStockMonitor = new RealTimeStockMonitor(
+                Constants.REAL_TIME_STOCK_MONITOR_MAX_THREAD, 
+                Constants.REAL_TIME_STOCK_MONITOR_MAX_STOCK_SIZE_PER_SCAN, 
+                MainFrame.getInstance().getJStockOptions().getScanningSpeed());
         
         this.realTimeStockMonitor.attach(this.realTimeStockMonitorObserver);
     }
@@ -1176,6 +1166,13 @@ public class IndicatorScannerJPanel extends javax.swing.JPanel implements Change
         RealTimeStockMonitor _realTimeStockMonitor = this.realTimeStockMonitor;
         if (_realTimeStockMonitor != null) {
             _realTimeStockMonitor.refresh();
+        }
+    }
+
+    public void rebuildRealTimeStockMonitor() {
+        RealTimeStockMonitor _realTimeStockMonitor = this.realTimeStockMonitor;
+        if (_realTimeStockMonitor != null) {
+            _realTimeStockMonitor.rebuild();
         }
     }
     

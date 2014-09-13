@@ -1,6 +1,6 @@
 /*
  * JStock - Free Stock Market Software
- * Copyright (C) 2012 Yan Cheng CHEOK <yccheok@yahoo.com>
+ * Copyright (C) 2014 Yan Cheng Cheok <yccheok@yahoo.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,20 +19,14 @@
 
 package org.yccheok.jstock.gui;
 
-import com.google.gdata.client.DocumentQuery;
-import com.google.gdata.client.GoogleService.CaptchaRequiredException;
-import com.google.gdata.client.docs.*;
-import com.google.gdata.data.docs.*;
-import com.google.gdata.util.*;
-import com.google.gdata.client.media.ResumableGDataFileUploader;
-import com.google.gdata.client.uploader.FileUploadData;
-import com.google.gdata.client.uploader.ProgressListener;
-import com.google.gdata.client.uploader.ResumableHttpFileUploader;
-import com.google.gdata.data.Link;
-import com.google.gdata.data.MediaContent;
-import com.google.gdata.data.PlainTextConstruct;
-import com.google.gdata.data.media.MediaFileSource;
-import com.google.gdata.data.media.MediaSource;
+import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.http.FileContent;
+import com.google.api.client.http.GenericUrl;
+import com.google.api.client.http.HttpResponse;
+import com.google.api.services.drive.Drive;
+import com.google.api.services.drive.Drive.Files;
+import com.google.api.services.drive.model.FileList;
+import com.google.api.services.drive.model.ParentReference;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.InstanceCreator;
@@ -44,6 +38,7 @@ import java.awt.Container;
 import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.FontFormatException;
 import java.awt.Graphics;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsDevice;
@@ -64,7 +59,6 @@ import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -84,20 +78,14 @@ import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
-import net.sourceforge.pinyin4j.format.exception.BadHanyuPinyinOutputFormatCombination;
-import org.yccheok.jstock.engine.*;
 import java.util.*;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
-import javax.imageio.ImageIO;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
@@ -121,22 +109,18 @@ import net.sourceforge.pinyin4j.format.HanyuPinyinCaseType;
 import net.sourceforge.pinyin4j.format.HanyuPinyinOutputFormat;
 import net.sourceforge.pinyin4j.format.HanyuPinyinToneType;
 import net.sourceforge.pinyin4j.format.HanyuPinyinVCharType;
+import net.sourceforge.pinyin4j.format.exception.BadHanyuPinyinOutputFormatCombination;
 import org.apache.commons.httpclient.Header;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
-import org.apache.commons.httpclient.NameValuePair;
 import org.apache.commons.httpclient.auth.AuthScope;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.RequestEntity;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
-import org.apache.commons.httpclient.methods.multipart.FilePart;
-import org.apache.commons.httpclient.methods.multipart.MultipartRequestEntity;
-import org.apache.commons.httpclient.methods.multipart.Part;
-import org.apache.commons.httpclient.methods.multipart.StringPart;
 import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.apache.commons.lang.CharUtils;
 import org.apache.commons.logging.Log;
@@ -149,6 +133,7 @@ import org.yccheok.jstock.analysis.Indicator;
 import org.yccheok.jstock.analysis.OperatorIndicator;
 import org.yccheok.jstock.analysis.SinkOperator;
 import org.yccheok.jstock.analysis.StockOperator;
+import org.yccheok.jstock.engine.*;
 import org.yccheok.jstock.internationalization.MessagesBundle;
 import org.yccheok.jstock.network.Utils.Type;
 
@@ -161,6 +146,13 @@ public class Utils {
     private Utils() {
     }
 
+    public static void updateFactoriesPriceSource() {
+        for (Country country : Country.values()) {
+            final PriceSource priceSource = MainFrame.getInstance().getJStockOptions().getPriceSource(country);
+            Factories.INSTANCE.updatePriceSource(country, priceSource);
+        }  
+    }
+    
     /**
      * Returns true if there are specified language files designed for this
      * locale. As in Java, when there are no specified language files for a 
@@ -376,9 +368,7 @@ public class Utils {
         return extractZipFile(zipFilePath, Utils.getUserDataDirectory(), overwrite);
     }
     
-    public static boolean extractZipFile(File zipFilePath, String destDirectory, boolean overwrite) {
-        assert(destDirectory.endsWith(File.separator));
-        
+    public static boolean extractZipFile(File zipFilePath, String destDirectory, boolean overwrite) {        
         InputStream inputStream = null;
         ZipInputStream zipInputStream = null;
         boolean status = true;
@@ -400,7 +390,12 @@ public class Utils {
                         break;
                     }
 
-                    final String destination =  destDirectory + zipEntry.getName();
+                    final String destination;
+                    if (destDirectory.endsWith(File.separator)) {
+                        destination =  destDirectory + zipEntry.getName();
+                    } else {
+                        destination =  destDirectory + File.separator + zipEntry.getName();
+                    }
 
                     if (overwrite == false) {
                         if (Utils.isFileOrDirectoryExist(destination)) {
@@ -887,54 +882,6 @@ public class Utils {
         return dir.delete();
     }
 
-    /**
-     * Returns empty stock based on given stock info.
-     *
-     * @param stockInfo the stock info
-     * @return empty stock based on given stock info
-     */
-    public static Stock getEmptyStock(StockInfo stockInfo) {
-        return getEmptyStock(stockInfo.code, stockInfo.symbol);
-    }
-
-    /**
-     * Returns empty stock based on given code and symbol.
-     *
-     * @param code the code
-     * @param symbol the symbol
-     * @return empty stock based on given code and symbol
-     */
-    public static Stock getEmptyStock(Code code, Symbol symbol) {
-        return new Stock(   code,
-                            symbol,
-                            "",
-                            Stock.Board.Unknown,
-                            Stock.Industry.Unknown,
-                            0.0,
-                            0.0,
-                            0.0,
-                            0.0,
-                            0.0,
-                            0,
-                            0.0,
-                            0.0,
-                            0,
-                            0.0,
-                            0,
-                            0.0,
-                            0,
-                            0.0,
-                            0,
-                            0.0,
-                            0,
-                            0.0,
-                            0,
-                            0.0,
-                            0,
-                            System.currentTimeMillis()                              
-                            );                
-    } 
-
     public static void deleteAllOldFiles(File dir, int days) {
         if (dir.isDirectory()) {
             String[] children = dir.list();
@@ -1011,7 +958,7 @@ public class Utils {
     
     // Remember to revise googleDocTitlePattern if we change the definition
     // of this method.
-    private static String getGoogleDocTitle(long checksum, long date, int version) {
+    private static String getGoogleDriveTitle(long checksum, long date, int version) {
         return "jstock-" + getJStockUUID() + "-checksum=" + checksum + "-date=" + date + "-version=" + version + ".zip";
     }
     
@@ -1181,540 +1128,260 @@ public class Utils {
         }
     }
 
-    public static CloudFile loadFromGoogleDoc(String username, String password) {
-        CaptchaRespond captchaRespond = null;
-        DocsService client = new DocsService(getCloudApplicationName());
-        do {
-            try {
-                if (captchaRespond == null) {
-                    client.setUserCredentials(username, password);
-                } else {
-                    client.setUserCredentials(username, password, captchaRespond.logintoken, captchaRespond.logincaptcha);
-                }
-                break;
-            } catch (CaptchaRequiredException ex) {
-                log.error(null, ex);
-                captchaRespond = Utils.getCapchaRespond(ex);
-                if (captchaRespond == null) {
-                    return null;
-                }
-            } catch (AuthenticationException ex) {
-                log.error(null, ex);
-                return null;
-            }
-        } while (true);
+    private static class GoogleCloudFile {
+        public final com.google.api.services.drive.model.File file;
+        public final long checksum;
+        public final long date;
+        public final int version;
+        private GoogleCloudFile(com.google.api.services.drive.model.File file, long checksum, long date, int version) {
+            this.file = file;
+            this.checksum = checksum;
+            this.date = date;
+            this.version = version;
+        }
 
-        // Login success. Let's find the cloud file.
+        public static GoogleCloudFile newInstance(com.google.api.services.drive.model.File file, long checksum, long date, int version) {
+            return new GoogleCloudFile(file, checksum, date, version);
+        }
+    }
+
+    private static GoogleCloudFile searchFromGoogleDrive(Drive drive, String qString) {
         try {
-            URL feedUri = new URL("https://docs.google.com/feeds/default/private/full/");
-            DocumentQuery query = new DocumentQuery(feedUri);
-            // Get Everything
-            DocumentListFeed allEntries = new DocumentListFeed();
-            DocumentListFeed tempFeed = client.getFeed(query, DocumentListFeed.class);
-            do {
-                allEntries.getEntries().addAll(tempFeed.getEntries());
-                Link nextLink = tempFeed.getNextLink();
-                if ((nextLink == null) || (tempFeed.getEntries().isEmpty())) {
-                  break;
-                }
-                tempFeed = client.getFeed(new URL(nextLink.getHref()), DocumentListFeed.class);
-            } while (true);
-
-            DocumentListEntry documentListEntry = null;
-
-            long checksum = 0;
-            long date = 0;
-            int version = 0;
+            Files.List request = drive.files().list().setQ(qString);
             
-            for (DocumentListEntry entry : allEntries.getEntries()) {
-                // Use title, not filename.
-                final String title = entry.getTitle().getPlainText();
-                if (title == null) {
-                    // Do we really need to perform null checking?                    
-                    continue;
-                }
-                // Retrieve checksum, date and version information from filename.
-                final Matcher matcher = googleDocTitlePattern.matcher(title);
-                String _checksum = null;
-                String _date = null;
-                String _version = null;
-                if (matcher.find()){
-                    if (matcher.groupCount() == 3) {
-                        _checksum = matcher.group(1);
-                        _date = matcher.group(2);
-                        _version = matcher.group(3);
+            do {                
+                FileList fileList = request.execute();
+                
+                long checksum = 0;
+                long date = 0;
+                int version = 0;
+                com.google.api.services.drive.model.File file = null;
+
+                for (com.google.api.services.drive.model.File f : fileList.getItems()) {
+
+                    final String title = f.getTitle();
+
+                    if (title == null || f.getDownloadUrl() == null || f.getDownloadUrl().length() <= 0) {
+                        continue;
                     }
+
+                    // Retrieve checksum, date and version information from filename.
+                    final Matcher matcher = googleDocTitlePattern.matcher(title);
+                    String _checksum = null;
+                    String _date = null;
+                    String _version = null;
+                    if (matcher.find()){
+                        if (matcher.groupCount() == 3) {
+                            _checksum = matcher.group(1);
+                            _date = matcher.group(2);
+                            _version = matcher.group(3);
+                        }
+                    }
+                    if (_checksum == null || _date == null || _version == null) {
+                        continue;
+                    }
+
+                    try {
+                        checksum = Long.parseLong(_checksum);
+                        date = Long.parseLong(_date);
+                        version = Integer.parseInt(_version);
+                    } catch (NumberFormatException ex) {
+                        log.error(null, ex);
+                        continue;
+                    }  
+
+                    file = f;
+
+                    break;
                 }
-                if (_checksum == null || _date == null || _version == null) {
-                    continue;
+
+                if (file != null) {
+                    return GoogleCloudFile.newInstance(file, checksum, date, version);
                 }
                 
-                try {
-                    checksum = Long.parseLong(_checksum);
-                    date = Long.parseLong(_date);
-                    version = Integer.parseInt(_version);
-                } catch (NumberFormatException ex) {
-                    log.error(null, ex);
-                    continue;
-                } 
-                
-                documentListEntry = entry;
-                final File temp = File.createTempFile(Utils.getJStockUUID(), ".zip");
-                temp.deleteOnExit();
-                downloadFile(client, documentListEntry, temp);
-                return CloudFile.newInstance(temp, checksum, date, version);                
-            }
+                request.setPageToken(fileList.getNextPageToken());
+            } while (request.getPageToken() != null && request.getPageToken().length() > 0);
         } catch (IOException ex) {
-            log.error(null, ex);
-            return null;
-        } catch (ServiceException ex) {
             log.error(null, ex);
             return null;
         }
         return null;
     }
-    
-    private static void downloadFile(DocsService client, DocumentListEntry entry, File file)
-        throws IOException, MalformedURLException, ServiceException {
 
-        MediaContent mc = (MediaContent) entry.getContent();
-        MediaSource ms = client.getMedia(mc);
-
-        InputStream inStream = null;
-        FileOutputStream outStream = null;
-
+    private static CloudFile _loadFromGoogleDrive(Credential credential, String qString) {
+        Drive drive = org.yccheok.jstock.google.Utils.getDrive(credential);
+        
+        GoogleCloudFile googleCloudFile = searchFromGoogleDrive(drive, qString);
+        
+        if (googleCloudFile == null) {
+            return null;
+        }
+        
+        final com.google.api.services.drive.model.File file = googleCloudFile.file;
+        final long checksum = googleCloudFile.checksum;
+        final long date = googleCloudFile.date;
+        final int version = googleCloudFile.version;
+        
+        HttpResponse resp = null;
+        InputStream inputStream = null;
+        java.io.File outputFile = null;
+        OutputStream outputStream = null;
+        
         try {
-            inStream = ms.getInputStream();
-            outStream = new FileOutputStream(file);
-
-            int c;
-            while ((c = inStream.read()) != -1) {
-                outStream.write(c);
-            }
+            resp = drive.getRequestFactory().buildGetRequest(new GenericUrl(file.getDownloadUrl())).execute();
+            inputStream = resp.getContent();
+            outputFile = java.io.File.createTempFile(Utils.getJStockUUID(), ".zip");
+            outputFile.deleteOnExit();
+            outputStream = new FileOutputStream(outputFile);
+            
+            int read = 0;
+            byte[] bytes = new byte[1024];
+         
+            while ((read = inputStream.read(bytes)) != -1) {
+                outputStream.write(bytes, 0, read);
+            }            
+        } catch (IOException ex) {
+            log.error(null, ex);
         } finally {
-            if (inStream != null) {
-                inStream.close();
-            }
-            if (outStream != null) {
-                outStream.flush();
-                outStream.close();
-            }
-        }
-    }
-
-    public static CloudFile loadFromCloud(String username, String password) {
-        CaptchaRespond captchaRespond = null;
-        do {
-            final String url = "https://jstock-cloud.appspot.com/DownloadServlet";
-            final PostMethod post = new PostMethod(url);
-            InputStream inputStream = null;
-            OutputStream outputStream = null;
-
-            try {
-                org.yccheok.jstock.engine.Utils.setHttpClientProxyFromSystemProperties(httpClient);
-                org.yccheok.jstock.gui.Utils.setHttpClientProxyCredentialsFromJStockOptions(httpClient);
-
-                NameValuePair[] data = null;
-
-                if (captchaRespond == null) {
-                    data = new NameValuePair[] {
-                        new NameValuePair("Email", username),
-                        new NameValuePair("Passwd", password)
-                    };
-                }
-                else {
-                    data = new NameValuePair[] {
-                        new NameValuePair("Email", username),
-                        new NameValuePair("Passwd", password),
-                        new NameValuePair("logintoken", captchaRespond.logintoken),
-                        new NameValuePair("logincaptcha", captchaRespond.logincaptcha)
-                    };
-                }
-
-                post.setRequestBody(data);
-                // No ProxyAuth support yet. I do not know how to do so.
-                httpClient.executeMethod(post);
-                final Header header = post.getResponseHeader("Content-Type");
-                if (header == null || header.getValue() == null) {
-                    return null;
-                }
-
-                // Returns text/plain; charset=iso-8859-1
-                if (true == header.getValue().contains("text/plain")) {
-                    final String respond = post.getResponseBodyAsString();
-                    if (respond == null) {
-                        return null;
-                    }
-                    /* Captcha guess? */
-                    captchaRespond = Utils.getCapchaRespond(respond);
-
-                    if (captchaRespond == null) {
-                        return null;
-                    }
-                    continue;
-                }
-
-                if (false == header.getValue().equalsIgnoreCase("application/octet-stream")) {
-                    return null;
-                }
-
-                String _checksum = post.getResponseHeader("jstock-custom-checksum").getValue();
-                String _date = post.getResponseHeader("jstock-custom-date").getValue();
-                String _version = post.getResponseHeader("jstock-custom-version").getValue();
-                if (_checksum == null || _date == null || _version == null) {
-                    return null;
-                }
-
-                long checksum = Long.parseLong(_checksum);
-                long date = Long.parseLong(_date);
-                int version = Integer.parseInt(_version);
-
-                inputStream = post.getResponseBodyAsStream();
-                final File temp = File.createTempFile(Utils.getJStockUUID(), ".zip");
-                temp.deleteOnExit();
-                outputStream = new FileOutputStream(temp);
-                byte buf[] = new byte[1024];
-                int len;
-                while ((len = inputStream.read(buf)) > 0) {
-                    outputStream.write(buf, 0, len);
-                }
-                return CloudFile.newInstance(temp, checksum, date, version);
-            }
-            catch (FileNotFoundException ex) {
-                log.error(null, ex);
-                return null;
-            }
-            catch (IOException ex) {
-                log.error(null, ex);
-                return null;
-            }
-            catch (NumberFormatException ex) {
-                log.error(null, ex);
-                return null;
-            }
-            finally {
-                close(outputStream);
-                close(inputStream);
-                post.releaseConnection();
-            }
-        } while (true);
-    }
-
-    private static class CaptchaRespond {
-        public final String logintoken;
-        public final String logincaptcha;
-        public CaptchaRespond(String logintoken, String logincaptcha) {
-            this.logintoken = logintoken;
-            this.logincaptcha = logincaptcha;
-        }
-    }
-
-    private static CaptchaRespond getCapchaRespond(CaptchaRequiredException captchaRequiredException) {
-        final String CaptchaToken = captchaRequiredException.getCaptchaToken();
-        final String CaptchaUrl = captchaRequiredException.getCaptchaUrl();
-        try {
-            URL url = new URL("https://www.google.com/accounts/" + CaptchaUrl);
-            BufferedImage image = ImageIO.read(url);
-            final CaptchaInputJDialog dialog = new CaptchaInputJDialog(MainFrame.getInstance(), image, true);
-            // Possible deadlock?
-            // SwingUtilities.invokeAndWait(new Runnable() {
-            //    @Override
-            //    public void run() {                        
-            //        dialog.setLocationRelativeTo(MainFrame.getInstance());
-            //        dialog.setVisible(true);
-            //    }
-            //});
-            dialog.setLocationRelativeTo(MainFrame.getInstance());
-            dialog.setVisible(true);
-            if (dialog.getCaptcha() == null || dialog.getCaptcha().length() <= 0) {
-                return null;
-            }
-            return new CaptchaRespond(CaptchaToken, dialog.getCaptcha());
-        } catch (Exception exp) {
-            log.error(null, exp);
-            return null;
-        }        
-    }
-    
-    private static CaptchaRespond getCapchaRespond(String respond) {
-        assert(respond != null);
-
-        /* Handle Captcha. */
-        final String[] res = respond.split("\\r?\\n");
-        final Map<String, String> map = new HashMap<String, String>();
-        for (String r : res) {
-            final String[] v = r.split("=", 2);
-            if (v.length == 2) {
-                v[0] = v[0].trim();
-                v[1] = v[1].trim();
-                if (v[0].length() == 0 || v[1].length() == 0) {
-                    continue;
-                }
-                map.put(v[0], v[1]);
-            }
-        }
-
-        if (map.containsKey("CaptchaToken") && map.containsKey("CaptchaUrl")) {
-            final String CaptchaToken = map.get("CaptchaToken");
-            final String CaptchaUrl = map.get("CaptchaUrl");
-
-            try {
-                URL url = new URL("https://www.google.com/accounts/" + CaptchaUrl);
-                BufferedImage image = ImageIO.read(url);
-                final CaptchaInputJDialog dialog = new CaptchaInputJDialog(MainFrame.getInstance(), image, true);
-                // Possible deadlock?
-                // SwingUtilities.invokeAndWait(new Runnable() {
-                //    @Override
-                //    public void run() {                        
-                //        dialog.setLocationRelativeTo(MainFrame.getInstance());
-                //        dialog.setVisible(true);
-                //    }
-                //});
-                dialog.setLocationRelativeTo(MainFrame.getInstance());
-                dialog.setVisible(true);
-                if (dialog.getCaptcha() == null || dialog.getCaptcha().length() <= 0) {
-                    return null;
-                }
-                return new CaptchaRespond(CaptchaToken, dialog.getCaptcha());
-            }
-            catch (Exception exp) {
-                log.error(null, exp);
-                return null;
-            }
-        }
-        return null;
-    }
-
-    private static class FileUploadProgressListener implements ProgressListener {
-
-        private final CountDownLatch countDownLatch = new CountDownLatch(1);
-        
-        @Override
-        public synchronized void progressChanged(ResumableHttpFileUploader uploader)
-        {
-            final String fileId = ((FileUploadData) uploader.getData()).getFileName();
-            switch(uploader.getUploadState()) {
-            case COMPLETE:
-            case CLIENT_ERROR:
-                countDownLatch.countDown();
-                log.info(fileId + ": Completed");
-                break;
-            
-            case IN_PROGRESS:
-                log.info(fileId + ":" + String.format("%3.0f", uploader.getProgress() * 100) + "%");
-                break;
-        
-            case NOT_STARTED:
-                log.info(fileId + ":" + "Not Started");
-                break;
-            }
-        }
-        
-        public void await() throws InterruptedException {
-            countDownLatch.await();
-        }
-    }
-    
-    public static boolean saveToGoogleDoc(String username, String password, File file) {
-        CaptchaRespond captchaRespond = null;
-        DocsService client = new DocsService(getCloudApplicationName());
-        do {
-            try {
-                if (captchaRespond == null) {
-                    client.setUserCredentials(username, password);
-                } else {
-                    client.setUserCredentials(username, password, captchaRespond.logintoken, captchaRespond.logincaptcha);
-                }
-                break;
-            } catch (CaptchaRequiredException ex) {
-                log.error(null, ex);
-                captchaRespond = Utils.getCapchaRespond(ex);
-                if (captchaRespond == null) {
-                    return false;
-                }
-            } catch (AuthenticationException ex) {
-                log.error(null, ex);
-                return false;
-            }
-        } while (true);
-
-        try {
-            // Login success. Determine whether we need to perform NEW or UPDATE
-            // operation.
-            URL feedUri = new URL("https://docs.google.com/feeds/default/private/full/");
-            DocumentQuery query = new DocumentQuery(feedUri);
-            // Get Everything
-            DocumentListFeed allEntries = new DocumentListFeed();
-            DocumentListFeed tempFeed = client.getFeed(query, DocumentListFeed.class);
-            do {
-                allEntries.getEntries().addAll(tempFeed.getEntries());
-                Link nextLink = tempFeed.getNextLink();
-                if ((nextLink == null) || (tempFeed.getEntries().isEmpty())) {
-                  break;
-                }
-                tempFeed = client.getFeed(new URL(nextLink.getHref()), DocumentListFeed.class);
-            } while (true);
-
-            DocumentListEntry documentListEntry = null;
-
-            for (DocumentListEntry entry : allEntries.getEntries()) {
-                final String filename = entry.getFilename();
-                if (filename == null) {
-                    continue;
-                }
-                // Retrieve checksum, date and version information from filename.
-                final Matcher matcher = googleDocTitlePattern.matcher(filename);
-                String _checksum = null;
-                String _date = null;
-                String _version = null;
-                if (matcher.find()){
-                    if (matcher.groupCount() == 3) {
-                        _checksum = matcher.group(1);
-                        _date = matcher.group(2);
-                        _version = matcher.group(3);
-                    }
-                }
-                if (_checksum == null || _date == null || _version == null) {
-                    continue;
-                }
-                
+            Utils.close(outputStream);
+            Utils.close(inputStream);
+            if (resp != null) {
                 try {
-                    Long.parseLong(_checksum);
-                    Long.parseLong(_date);
-                    Integer.parseInt(_version);
-                } catch (NumberFormatException ex) {
+                    resp.disconnect();
+                } catch (IOException ex) {
                     log.error(null, ex);
-                    continue;
                 }
-                documentListEntry = entry;
-                break;
             }
-
-            final long checksum = org.yccheok.jstock.analysis.Utils.getChecksum(file);
-            final long date = new Date().getTime();
-            final int version = org.yccheok.jstock.gui.Utils.getCloudFileVersionID();
-
-            // Login success. Let's upload the cloud file.
-            final int MAX_CONCURRENT_UPLOADS = 10;
-            final int PROGRESS_UPDATE_INTERVAL = 1000;
-            final int DEFAULT_CHUNK_SIZE = 10485760;
-
-            // Create a listener
-            FileUploadProgressListener listener = new FileUploadProgressListener();
-
-            // Pool for handling concurrent upload tasks
-            ExecutorService executor = Executors.newFixedThreadPool(MAX_CONCURRENT_UPLOADS);
-
-            String contentType = DocumentListEntry.MediaType.fromFileName(file.getName()).getMimeType();
-            MediaFileSource mediaFile = new MediaFileSource(file, contentType);
-        
-            URL createUploadUrl = new URL("https://docs.google.com/feeds/upload/create-session/default/private/full?convert=false");
-            ResumableGDataFileUploader uploader = null;
-            if (documentListEntry == null) {
-                // New file.
-                uploader = new ResumableGDataFileUploader.Builder(client, createUploadUrl, mediaFile, null)
-                .title(getGoogleDocTitle(checksum, date, version))
-                .chunkSize(DEFAULT_CHUNK_SIZE).executor(executor)
-                .trackProgress(listener, PROGRESS_UPDATE_INTERVAL)
-                .build();
-            } else {
-                // Rename and overwrite.
-                documentListEntry.setTitle(new PlainTextConstruct(getGoogleDocTitle(checksum, date, version)));
-                uploader = new ResumableGDataFileUploader.Builder(client, createUploadUrl, mediaFile, documentListEntry)
-                .title(getGoogleDocTitle(checksum, date, version))
-                .chunkSize(DEFAULT_CHUNK_SIZE).executor(executor)
-                .trackProgress(listener, PROGRESS_UPDATE_INTERVAL).requestType(ResumableGDataFileUploader.RequestType.UPDATE)
-                .build();
-            }
-            uploader.start();
-
-            // Wait for completion.
-            listener.await();
-
-            // Thread clean up.
-            executor.shutdownNow();
-            executor.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS);            
-        } catch (java.net.MalformedURLException ex) {
-            // Impossible.
-            log.error(null, ex);
-            return false;
-        } catch (IOException ex) {
-            log.error(null, ex);
-            return false;            
-        } catch (ServiceException ex) {
-            log.error(null, ex);
-            return false;
-        } catch (InterruptedException ex) {
-            log.error(null, ex);
-            return false;            
         }
-
-        return true;
+        
+        if (outputFile == null) {
+            return null;
+        }
+        
+        return CloudFile.newInstance(outputFile, checksum, date, version);
     }
     
-    public static boolean saveToCloud(String username, String password, File file) {
-        CaptchaRespond captchaRespond = null;
+    public static CloudFile loadFromGoogleDrive(Credential credential) {
+        // 25 is based on experiment. Might changed by Google in the future.
+        final String titleName = ("jstock-" + Utils.getJStockUUID() + "-checksum=").substring(0, 25);        
+        final String qString = "title contains '" + titleName + "' and trashed = false and 'appdata' in parents";
+        return _loadFromGoogleDrive(credential, qString);
+    }
 
-        do {
-            final String url = "https://jstock-cloud.appspot.com/UploadServlet";
-            final PostMethod post = new PostMethod(url);
-            try {
-                org.yccheok.jstock.engine.Utils.setHttpClientProxyFromSystemProperties(httpClient);
-                org.yccheok.jstock.gui.Utils.setHttpClientProxyCredentialsFromJStockOptions(httpClient);
-                Part[] parts = null;
+    // Legacy. Shall be removed after a while...
+    public static CloudFile loadFromLegacyGoogleDrive(Credential credential) {
+        // 25 is based on experiment. Might changed by Google in the future.
+        final String titleName = ("jstock-" + Utils.getJStockUUID() + "-checksum=").substring(0, 25);
+        final String qString = "title contains '" + titleName + "' and trashed = false and not 'appdata' in parents";
+        return _loadFromGoogleDrive(credential, qString);
+    }
 
-                if (captchaRespond == null) {
-                    parts = new Part[]{
-                        new StringPart("Email", username),
-                        new StringPart("Passwd", password),
-                        new StringPart("Date", new Date().getTime() + ""),
-                        new StringPart("Checksum", org.yccheok.jstock.analysis.Utils.getChecksum(file) + ""),
-                        new StringPart("Version", org.yccheok.jstock.gui.Utils.getCloudFileVersionID() + ""),
-                        new FilePart("file", file)
-                    };
-                }
-                else {
-                    parts = new Part[]{
-                        new StringPart("Email", username),
-                        new StringPart("Passwd", password),
-                        new StringPart("Date", new Date().getTime() + ""),
-                        new StringPart("Checksum", org.yccheok.jstock.analysis.Utils.getChecksum(file) + ""),
-                        new StringPart("Version", org.yccheok.jstock.gui.Utils.getCloudFileVersionID() + ""),
-                        new StringPart("logintoken", captchaRespond.logintoken),
-                        new StringPart("logincaptcha", captchaRespond.logincaptcha),
-                        new FilePart("file", file)
-                    };
-                }
-                post.setRequestEntity(new MultipartRequestEntity(parts, post.getParams()));
+    public static boolean saveToGoogleDrive(Credential credential, File file) {
+        // 25 is based on experiment. Might changed by Google in the future.
+        final String titleName = ("jstock-" + Utils.getJStockUUID() + "-checksum=").substring(0, 25);        
+        final String qString = "title contains '" + titleName + "' and trashed = false and 'appdata' in parents";        
+        return _saveToGoogleDrive(credential, file, qString, "appdata");
+    }
+    
+    public static boolean saveToLegacyGoogleDrive(Credential credential, File file) {
+        // 25 is based on experiment. Might changed by Google in the future.
+        final String titleName = ("jstock-" + Utils.getJStockUUID() + "-checksum=").substring(0, 25);
+        final String qString = "title contains '" + titleName + "' and trashed = false and not 'appdata' in parents";       
+        return _saveToGoogleDrive(credential, file, qString, null);
+    }
+    
+    private static boolean _saveToGoogleDrive(Credential credential, File file, String qString, String folder) {
+        Drive drive = org.yccheok.jstock.google.Utils.getDrive(credential);
+        
+        // Should we new or replace?
+        
+        GoogleCloudFile googleCloudFile = searchFromGoogleDrive(drive, qString);
+        
+        final long checksum = org.yccheok.jstock.analysis.Utils.getChecksum(file);
+        final long date = new Date().getTime();
+        final int version = org.yccheok.jstock.gui.Utils.getCloudFileVersionID();
+        final String title = getGoogleDriveTitle(checksum, date, version);    
 
-                // No ProxyAuth support yet. I do not know how to do so.
-                httpClient.executeMethod(post);
-                final String respond = post.getResponseBodyAsString();
-                if (respond == null) {
+        if (googleCloudFile == null) {
+            String id = null;
+            if (folder != null) {
+                com.google.api.services.drive.model.File appData;
+                try {
+                    appData = drive.files().get(folder).execute();
+                    id = appData.getId();
+                } catch (IOException ex) {
+                    log.error(null, ex);
                     return false;
                 }
-                if (respond.equals("OK")) {
-                    return true;
-                }
+            }
+            return null != insertFile(drive, title, id, file);
+        } else {
+            final com.google.api.services.drive.model.File oldFile = googleCloudFile.file;
+            return null != updateFile(drive, oldFile.getId(), title, file);
+        }
+    }
+    
+    /**
+     * Insert new file.
+     *
+     * @param service Drive API service instance.
+     * @param title Title of the file to insert, including the extension.
+     * @param parentId Optional parent folder's ID.
+     * @param mimeType MIME type of the file to insert.
+     * @param filename Filename of the file to insert.
+     * @return Inserted file metadata if successful, {@code null} otherwise.
+     */
+    private static com.google.api.services.drive.model.File insertFile(Drive service, String title, String parentId, java.io.File fileContent) {
+        // File's metadata.
+        com.google.api.services.drive.model.File body = new com.google.api.services.drive.model.File();
+        body.setTitle(title);
 
-                captchaRespond = Utils.getCapchaRespond(respond);
+        // Set the parent folder.
+        if (parentId != null && parentId.length() > 0) {
+            body.setParents(
+                Arrays.asList(new ParentReference().setId(parentId)));
+        }
 
-                if (captchaRespond == null) {
-                    return false;
-                }
-            }
-            catch (FileNotFoundException ex) {
-                log.error(null, ex);
-                return false;
-            }
-            catch (IOException ex) {
-                log.error(null, ex);
-                return false;
-            }
-            finally {
-                post.releaseConnection();
-            }
-        } while (true);
+        // File's content.
+        FileContent mediaContent = new FileContent("", fileContent);
+        try {
+            com.google.api.services.drive.model.File file = service.files().insert(body, mediaContent).execute();
+            return file;
+        } catch (IOException e) {
+            log.error(null, e);
+            return null;
+        }
+    }
+
+    /**
+     * Update an existing file's metadata and content.
+     *
+     * @param service Drive API service instance.
+     * @param fileId ID of the file to update.
+     * @param newTitle New title for the file.
+     * @param newFilename Filename of the new content to upload.
+     * @return Updated file metadata if successful, {@code null} otherwise.
+     */
+    private static com.google.api.services.drive.model.File updateFile(Drive service, String fileId, String newTitle, java.io.File fileContent) {
+        try {
+            // First retrieve the file from the API.
+            com.google.api.services.drive.model.File file = service.files().get(fileId).execute();
+
+            // File's new metadata.
+            file.setTitle(newTitle);
+
+            FileContent mediaContent = new FileContent("", fileContent);
+            
+            // http://stackoverflow.com/questions/23707388/unable-update-file-store-in-appdata-scope-500-internal-server-error
+
+            // Send the request to the API.
+            com.google.api.services.drive.model.File updatedFile = service.files().update(fileId, file, mediaContent).execute();
+
+            return updatedFile;
+        } catch (IOException e) {
+            log.error(null, e);
+            return null;
+        }
     }
 
     public static boolean isCloudFileCompatible(int cloudFileVersionId) {
@@ -2351,7 +2018,7 @@ public class Utils {
                             }
                         }
                     });
-                    final InputStream audioSrc = Utils.class.getResourceAsStream("/sounds/doorbell.wav");
+                    final InputStream audioSrc = Utils.class.getResourceAsStream("/assets/sounds/doorbell.wav");
                     // http://stackoverflow.com/questions/5529754/java-io-ioexception-mark-reset-not-supported
                     // Add buffer for mark/reset support.
                     final InputStream bufferedIn = new BufferedInputStream(audioSrc);                    
@@ -2878,6 +2545,31 @@ public class Utils {
         return stockInfoDatabaseMeta;
     }
     
+    public static Font getRobotoLightFont() {
+        if (ROBOTO_LIGHT_FONT == null) {
+            ROBOTO_LIGHT_FONT = _getRobotoLightFont();
+        }
+        return ROBOTO_LIGHT_FONT;
+    }
+    
+    private static Font _getRobotoLightFont() {
+        InputStream inputStream = Utils.class.getResourceAsStream("/assets/fonts/Roboto-Light.ttf");
+        try {
+            Font font = Font.createFont(Font.TRUETYPE_FONT, inputStream);
+            if (font != null) {
+                return font;
+            }
+        } catch (FontFormatException ex) {
+            log.error(null, ex);
+        } catch (IOException ex) {
+            log.error(null, ex);
+        } finally {
+            close(inputStream);
+        }
+        Font oldLabelFont = UIManager.getFont("Label.font");
+        return oldLabelFont;
+    }
+    
     public static boolean saveStockInfoDatabaseMeta(File stockInfoDatabaseMetaFile, Map<Country, Long> stockInfoDatabaseMeta) {
         final Gson gson = getGsonForStockInfoDatabaseMeta();
         String string = gson.toJson(stockInfoDatabaseMeta);
@@ -2998,6 +2690,8 @@ public class Utils {
         }
     };
     
+    public static Font ROBOTO_LIGHT_FONT = null;
+            
     private static final HanyuPinyinOutputFormat DEFAULT_HANYU_PINYIN_OUTPUT_FORMAT = new HanyuPinyinOutputFormat();
     static {
         DEFAULT_HANYU_PINYIN_OUTPUT_FORMAT.setCaseType(HanyuPinyinCaseType.LOWERCASE);
@@ -3009,18 +2703,18 @@ public class Utils {
 
     // We will use this as directory name. Do not have space or special characters.
     private static final String APPLICATION_VERSION_STRING = "1.0.7";
-
-    private static final String ABOUT_BOX_VERSION_STRING = "1.0.7j";
     
     // 1.0.7e
     // Remember to update isCloudFileCompatible method.
     private static final int CLOUD_FILE_VERSION_ID = 1107;
 
-    // 1.0.7j
+    private static final String ABOUT_BOX_VERSION_STRING = "1.0.7r";
+
+    // 1.0.7r
     // For About box comparision on latest version purpose.
-    private static final int APPLICATION_VERSION_ID = 1113;
+    private static final int APPLICATION_VERSION_ID = 1121;
         
-    private static Executor zombiePool = Executors.newFixedThreadPool(Utils.NUM_OF_THREADS_ZOMBIE_POOL);
+    private static final Executor zombiePool = Executors.newFixedThreadPool(Utils.NUM_OF_THREADS_ZOMBIE_POOL);
 
     private static final int NUM_OF_THREADS_ZOMBIE_POOL = 4;
 

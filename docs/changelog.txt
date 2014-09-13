@@ -1,6 +1,38 @@
 This file summarizes changes in JStock releases.
 Numbers in parentheses refer to SourceForge.net tracker item numbers (#XXXXX)
 
+JStock 1.0.7r - 2014-07-06
+  Bugfix:  Avoid 0 pricing when there is no internet connection.
+
+JStock 1.0.7q - 2014-07-05
+  Feature: Added KLSE Info price source.
+
+JStock 1.0.7p - 2014-07-03
+  Bugfix:  Update price source after open from cloud.
+  Bugfix:  Better quality stock scanner.
+  Bugfix:  Use zip file for GAE to save bandwidth.
+  
+JStock 1.0.7o - 2014-06-29
+  Feature: US, UK, Singapore, Taiwan, China, India countries are now using 
+           Google Finance as realtime price source.
+  Bugfix:  Saving user defined stock into database during country switching.
+  Bugfix:  Unable to perform stock column sorting for dividend dialog.
+  
+JStock 1.0.7n - 2014-05-21
+  Bugfix:  Temporary fix for save to cloud error.
+  
+JStock 1.0.7m - 2014-05-08
+  Feature: Use oAuth 2.0 for Google Drive.
+  Feature: Use oAuth 2.0 for Google Calendar.
+  Bugfix:  Proper shutdown in Mac.
+  
+JStock 1.0.7L - 2014-04-18
+  Bugfix:  Fix ASX.
+  Bugfix:  Fix on UK stock history server.
+  
+JStock 1.0.7k - 2014-04-03
+  Bugfix:  Brazil stock history server is down. Use Google Finance as backup.
+  
 JStock 1.0.7j - 2014-02-19
   Bugfix:  New Yahoo! feed URL.
   

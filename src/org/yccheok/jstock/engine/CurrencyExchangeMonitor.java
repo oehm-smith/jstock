@@ -108,20 +108,6 @@ public class CurrencyExchangeMonitor extends Subject<CurrencyExchangeMonitor, Do
     }
 
     /**
-     * Assign list of stock server factories to this currency monitor.
-     *
-     * @param factories list of stock server factories
-     */
-    public synchronized void setStockServerFactories(java.util.List<StockServerFactory> factories) {
-        // Do not use deep copy. If not, Factories's removeKLSEInfoStockServerFactory 
-        // effect won't propagate to here.
-        //stockServerFactories.clear();
-        //return stockServerFactories.addAll(factories);
-
-        stockServerFactories = factories;
-    }
-
-    /**
      * @return the fromCountry's currency
      */
     public String getFromCurrency() {
@@ -185,30 +171,10 @@ public class CurrencyExchangeMonitor extends Subject<CurrencyExchangeMonitor, Do
                             }
                         }
 
-                        if (successUpdatedCountryToCurrencyCode == false) {
-                            // Keep trying to fill in countryToCurrencyCode with latest
-                            // country -> currency information, until it successes at
-                            // least once.
-                            final String server = org.yccheok.jstock.network.Utils.getURL(Type.CURRENCY_CODE_TXT);
-                            Map<String, String> map = org.yccheok.jstock.gui.Utils.getUUIDValue(server);
-                            for (Entry<String, String> entry : map.entrySet()) {
-                                if (entry.getValue() != null) {
-                                    try {
-                                        countryToCurrencyCode.put(Country.valueOf(entry.getKey()), entry.getValue());
-                                    } catch (java.lang.IllegalArgumentException ex) {
-                                        // I am not sure whether I should set
-                                        // successUpdatedCountryToCurrencyCode to false.
-                                        log.error(null, ex);
-                                    }
-                                    // OK. We need not to contact CURRENCY_CODE_TXT's
-                                    // server anymore.
-                                    successUpdatedCountryToCurrencyCode = true;
-                                }   // if
-                            }   // for
-                        }   // if (successUpdatedCountryToCurrencyCode == false)
-
                         // Let's do the job.
-                        for (StockServerFactory factory : stockServerFactories) {
+
+                        // Use fromCountry?
+                        for (StockServerFactory factory : Factories.INSTANCE.getStockServerFactories(fromCountry)) {
                             final StockServer stockServer = factory.getStockServer();
                             
                             if (stockServer == null) {
@@ -286,10 +252,6 @@ public class CurrencyExchangeMonitor extends Subject<CurrencyExchangeMonitor, Do
     // from CURRENCY_CODE_TXT's server, this map itself still able to provide
     // default information.
     private static final Map<Country, String> countryToCurrencyCode =  new EnumMap<Country, String>(Country.class);
-    // Whether we had updated countryToCurrencyCode at least once?
-    // Do I have to use volatile here? As this flag may write by a thread, but
-    // read by another thread later.
-    private static boolean successUpdatedCountryToCurrencyCode = false;
 
     static {
         countryToCurrencyCode.put(Country.Australia, "AUD");
@@ -331,11 +293,6 @@ public class CurrencyExchangeMonitor extends Subject<CurrencyExchangeMonitor, Do
      * Convert to this country's currency.
      */
     private final Country toCountry;
-
-    /**
-     * List of stock server factories.
-     */
-    private java.util.List<StockServerFactory> stockServerFactories = new java.util.concurrent.CopyOnWriteArrayList<StockServerFactory>();
 
     // Use volatile, to make assignment operation on double atomic.
     private volatile double exchangeRate = 1.0;

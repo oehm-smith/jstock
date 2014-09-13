@@ -29,8 +29,9 @@ import java.util.Locale;
 import java.util.Map;
 import org.apache.commons.httpclient.Credentials;
 import org.apache.commons.httpclient.NTCredentials;
-import org.yccheok.jstock.portfolio.BrokingFirm;
 import org.yccheok.jstock.engine.Country;
+import org.yccheok.jstock.engine.PriceSource;
+import org.yccheok.jstock.portfolio.BrokingFirm;
 
 /**
  *
@@ -177,8 +178,10 @@ public class JStockOptions {
     private String email;
     private String emailPassword;
     private String CCEmail;
-    private String googleCalendarUsername;
-    private String googleCalendarPassword;
+    @Deprecated
+    private transient String googleCalendarUsername;
+    @Deprecated
+    private transient String googleCalendarPassword;
     private boolean SMSEnabled;
     @Deprecated
     private transient boolean passwordProtectedIndicator;
@@ -242,20 +245,21 @@ public class JStockOptions {
     private String proxyAuthUserName = "";
     private boolean isProxyAuthEnabled = false;
 
-    private boolean rememberGoogleAccountEnabled = false;
-    private String googleUsername = "";
-    private String googlePassword = "";
+    @Deprecated
+    private transient boolean rememberGoogleAccountEnabled = false;
+    @Deprecated
+    private transient String googleUsername = "";
+    @Deprecated
+    private transient String googlePassword = "";
 
     // Remember where we save/open the last file.
     private String lastFileIODirectory = System.getProperty("user.home");
     private String lastFileNameExtensionDescription = "CSV Documents (*.csv)";
 
-    private Map<Country, Class> primaryStockServerFactoryClasses = new EnumMap<Country, Class>(Country.class);
-    // If this flag is false, we should remove Malaysia's info from primaryStockServerFactoryClasses.
-    // As, we want our users to try out latest KLSEInfoStockHistoryServer,
-    // which provides better history information than Yahoo's.
-    // If this flag is true, just do nothing.
-    private Boolean primaryStockServerFactoryClassesIsValidForMalaysia = true;
+    @Deprecated
+    private transient Map<Country, Class> primaryStockServerFactoryClasses = new EnumMap<Country, Class>(Country.class);
+    @Deprecated
+    private transient Boolean primaryStockServerFactoryClassesIsValidForMalaysia = true;
     
     // Remember the last view page.
     private int lastSelectedPageIndex = 0;
@@ -282,6 +286,8 @@ public class JStockOptions {
     // Possile be null in entire application life cycle.
     private BoundsEx boundsEx;
 
+    private Map<Country, PriceSource> priceSources = new EnumMap<Country, PriceSource>(Country.class);
+    
     private Map<Country, String> currencies = new EnumMap<Country, String>(Country.class);
 
     private Map<Country, Boolean> currencyExchangeEnable = new EnumMap<Country, Boolean>(Country.class);
@@ -392,8 +398,6 @@ public class JStockOptions {
         //this.lastFileIODirectory = jStockOptions.lastFileIODirectory;
         //this.lastFileNameExtensionDescription = jStockOptions.lastFileNameExtensionDescription;
 
-        this.primaryStockServerFactoryClasses = jStockOptions.primaryStockServerFactoryClasses;
-
         // Remember the last view page.
         this.lastSelectedPageIndex = jStockOptions.lastSelectedPageIndex;
         this.lastSelectedSellPortfolioChartIndex = jStockOptions.lastSelectedSellPortfolioChartIndex;
@@ -419,6 +423,7 @@ public class JStockOptions {
         // local.
         //this.boundsEx = jStockOptions.boundsEx;
 
+        this.priceSources = new EnumMap<Country, PriceSource>(jStockOptions.priceSources);
         this.currencies = new EnumMap<Country, String>(jStockOptions.currencies);
         this.currencyExchangeEnable = new EnumMap<Country, Boolean>(jStockOptions.currencyExchangeEnable);
         this.localCurrencyCountries = new EnumMap<Country, Country>(jStockOptions.localCurrencyCountries);
@@ -517,7 +522,6 @@ public class JStockOptions {
         //jStockOptions.lastFileIODirectory = this.lastFileIODirectory;
         //jStockOptions.lastFileNameExtensionDescription = this.lastFileNameExtensionDescription;
 
-        jStockOptions.primaryStockServerFactoryClasses = this.primaryStockServerFactoryClasses;
 
         // Remember the last view page.
         jStockOptions.lastSelectedPageIndex = this.lastSelectedPageIndex;
@@ -545,6 +549,7 @@ public class JStockOptions {
         //jStockOptions.boundsEx = this.boundsEx;
         
         // Perform deep copy.
+        jStockOptions.priceSources = new EnumMap<Country, PriceSource>(this.priceSources);
         jStockOptions.currencies = new EnumMap<Country, String>(this.currencies);
         jStockOptions.currencyExchangeEnable = new EnumMap<Country, Boolean>(this.currencyExchangeEnable);
         jStockOptions.localCurrencyCountries = new EnumMap<Country, Country>(this.localCurrencyCountries);
@@ -631,14 +636,6 @@ public class JStockOptions {
         if (this.proxyAuthPassword == null) {
             this.proxyAuthPassword = "";
         }
-
-        if (this.getGoogleUsername() == null) {
-            this.setGoogleUsername("");
-        }
-
-        if (this.getGooglePassword() == null) {
-            this.setGooglePassword("");
-        }
     
         setCredentials(new NTCredentials(this.proxyAuthUserName, Utils.decrypt(this.proxyAuthPassword), "", ""));
 
@@ -648,20 +645,6 @@ public class JStockOptions {
 
         if (this.getLastSavedFileNameExtensionDescription() == null) {
             this.setLastFileNameExtensionDescription("CSV Documents (*.csv)");
-        }
-
-        if (this.getGoogleCalendarUsername() == null) {
-            this.setGoogleCalendarUsername("");
-            this.setSMSEnabled(false);
-        }
-
-        if (this.getGoogleCalendarPassword() == null) {
-            setGoogleCalendarPassword("");
-            this.setSMSEnabled(false);
-        }
-
-        if (this.primaryStockServerFactoryClasses == null) {
-            primaryStockServerFactoryClasses = new EnumMap<Country, Class>(Country.class);
         }
 
         if (this.portfolioNames == null) {
@@ -696,6 +679,10 @@ public class JStockOptions {
             this.setLocale(Locale.getDefault());
         }
         
+        if (this.priceSources == null) {
+            this.priceSources = new EnumMap<Country, PriceSource>(Country.class);
+        }
+        
         if (this.currencies == null) {
             this.currencies = new EnumMap<Country, String>(Country.class);
         }
@@ -718,12 +705,6 @@ public class JStockOptions {
         
         if (this.fourDecimalPlacesEnabled == null) {
             this.fourDecimalPlacesEnabled = new EnumMap<Country, Boolean>(Country.class);
-        }
-        
-        if (this.primaryStockServerFactoryClassesIsValidForMalaysia == null || this.primaryStockServerFactoryClassesIsValidForMalaysia == false) {
-            primaryStockServerFactoryClasses.remove(Country.Malaysia);
-            // Removal will be only done once. After that, reset the flag.
-            this.primaryStockServerFactoryClassesIsValidForMalaysia = true;
         }
         
         // Bug caused by change language menu method. We rectify it, after we 
@@ -1199,34 +1180,6 @@ public class JStockOptions {
     }
     
     /**
-     * @return the googleCalendarUsername
-     */
-    public String getGoogleCalendarUsername() {
-        return googleCalendarUsername;
-    }
-
-    /**
-     * @param googleCalendarUsername the googleCalendarUsername to set
-     */
-    public void setGoogleCalendarUsername(String googleCalendarUsername) {
-        this.googleCalendarUsername = googleCalendarUsername;
-    }
-
-    /**
-     * @return the googleCalendarPassword
-     */
-    public String getGoogleCalendarPassword() {
-        return googleCalendarPassword;
-    }
-
-    /**
-     * @param googleCalendarPassword the googleCalendarPassword to set
-     */
-    public void setGoogleCalendarPassword(String googleCalendarPassword) {
-        this.googleCalendarPassword = googleCalendarPassword;
-    }
-
-    /**
      * @return the SMSEnabled
      */
     public boolean isSMSEnabled() {
@@ -1238,14 +1191,6 @@ public class JStockOptions {
      */
     public void setSMSEnabled(boolean SMSEnabled) {
         this.SMSEnabled = SMSEnabled;
-    }
-
-    public Class addPrimaryStockServerFactoryClass(Country country, Class c) {
-        return primaryStockServerFactoryClasses.put(country, c);
-    }
-
-    public Class getPrimaryStockServerFactoryClass(Country country) {
-        return primaryStockServerFactoryClasses.get(country);
     }
 
     /**
@@ -1350,49 +1295,19 @@ public class JStockOptions {
     public void setFourDecimalPlacesEnabled(/*Country country, */boolean fourDecimalPlacesEnabled) {
         this.fourDecimalPlacesEnabled.put(this.country, fourDecimalPlacesEnabled);
     }
+
+    public PriceSource getPriceSource(Country country) {
+        final PriceSource priceSource = this.priceSources.get(country);
+        if (priceSource == null) {
+            return org.yccheok.jstock.engine.Utils.getDefaultPriceSource(country);
+        }
+        return priceSource;
+    }
     
-    /**
-     * @return the rememberGoogleAccountEnabled
-     */
-    public boolean isRememberGoogleAccountEnabled() {
-        return rememberGoogleAccountEnabled;
+    public void setPriceSource(Country country, PriceSource priceSource) {
+        this.priceSources.put(country, priceSource);
     }
-
-    /**
-     * @param rememberGoogleAccountEnabled the rememberGoogleAccountEnabled to set
-     */
-    public void setRememberGoogleAccountEnabled(boolean rememberGoogleAccountEnabled) {
-        this.rememberGoogleAccountEnabled = rememberGoogleAccountEnabled;
-    }
-
-    /**
-     * @return the googleUsername
-     */
-    public String getGoogleUsername() {
-        return googleUsername;
-    }
-
-    /**
-     * @param googleUsername the googleUsername to set
-     */
-    public void setGoogleUsername(String googleUsername) {
-        this.googleUsername = googleUsername;
-    }
-
-    /**
-     * @return the googlePassword
-     */
-    public String getGooglePassword() {
-        return googlePassword;
-    }
-
-    /**
-     * @param googlePassword the googlePassword to set
-     */
-    public void setGooglePassword(String googlePassword) {
-        this.googlePassword = googlePassword;
-    }
-
+    
     /**
      * @return the soundEnabled
      */

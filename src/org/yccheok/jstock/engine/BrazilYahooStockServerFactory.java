@@ -28,6 +28,11 @@ import org.apache.commons.logging.LogFactory;
  */
 public class BrazilYahooStockServerFactory implements StockServerFactory {
 
+    @Override
+    public char getId() {
+        return 'a';
+    }
+    
     private BrazilYahooStockServerFactory() {
     }
     
@@ -61,17 +66,11 @@ public class BrazilYahooStockServerFactory implements StockServerFactory {
     }
 
     @Override
-    public MarketServer getMarketServer() {
-        return marketServer;
-    }
-
-    @Override
     public DividendServer getDividendServer() {
         return dividendServer;
     }
     
-    private final StockServer stockServer = new BrazilYahooStockServer();
-    private final MarketServer marketServer = new BrazilYahooMarketServer(); 
+    private final StockServer stockServer = new BrazilYahooStockServer(); 
     private final DividendServer dividendServer = new YahooDividendServer();
     
     private static final Log log = LogFactory.getLog(BrazilYahooStockServerFactory.class);

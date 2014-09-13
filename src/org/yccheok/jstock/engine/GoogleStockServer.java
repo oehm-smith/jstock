@@ -22,6 +22,8 @@ package org.yccheok.jstock.engine;
 import com.google.gson.Gson;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -29,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.yccheok.jstock.gui.Pair;
 
 /**
  *
@@ -65,68 +68,6 @@ public class GoogleStockServer implements StockServer {
 
         result = originalCodes.get(googleCodeStr1);
 
-        if (result != null) {
-            return result;
-        }
-
-        // 3rd try...
-        if (googleExchange.equals("NSE")) {
-            result = originalCodes.get(googleTicker + ".N");
-
-            if (result != null) {
-                return result;
-            }
-        } else if (googleExchange.equals("BOM")) {
-            result = originalCodes.get(googleTicker + ".B");
-
-            if (result != null) {
-                return result;
-            }
-        }
-
-        final Code googleCode = Code.newInstance(googleCodeStr0);
-        
-        result = originalCodes.get(Utils.toYahooFormat(googleCode).toString());
-        
-        if (result != null) {
-            return result;
-        }
-        
-        // Legacy code handling. In old India stock market, we are using Yahoo
-        // stock code format like TATAMOTORS.NS
-        final int googleTickerLength = googleTicker.length();
-        final int ns_length = ".NS".length();
-        for (Map.Entry<String, Code> entry : originalCodes.entrySet()) {
-            String key = entry.getKey();
-            final Code value = entry.getValue();
-            
-            final int key_length = key.length();
-            if (key.endsWith(".NS") && key_length > ns_length) {
-                key = key.substring(0, key_length - ns_length);
-            } else {
-                continue;
-            }
-            
-            if (googleTickerLength >= key.length()) {
-                if (googleTicker.equals(key)) {
-                    result = value;
-                    // Early break.
-                    break;
-                }
-                if (googleTicker.contains(key)) {
-                    result = value;
-                    // Don't break. Keep searching. We might
-                    // have a better.
-                }
-            } else {
-                if (key.contains(googleTicker)) {
-                    result = value;
-                    // Don't break. Keep searching. We might
-                    // have a better.
-                }
-            } 
-        }
-      
         return result;
     }
     
@@ -135,9 +76,6 @@ public class GoogleStockServer implements StockServer {
         assert(codes.isEmpty() == false);
         
         Map<String, Code> originalCodes = new HashMap<String, Code>();
-        for (Code code : codes) {
-            originalCodes.put(code.toString().trim().toUpperCase(), code);
-        }
                 
         // Use StringBuilder instead of StringBuffer. We do not concern on 
         // thread safety.
@@ -145,11 +83,17 @@ public class GoogleStockServer implements StockServer {
         try {
             // Exception will be thrown from apache httpclient, if we do not
             // perform URL encoding.
-            builder.append(java.net.URLEncoder.encode(Utils.toGoogleFormat(codes.get(0)).toString(), "UTF-8"));
-
-            for (int i = 1, size = codes.size(); i < size; i++) {
-                builder.append(",");
-                builder.append(java.net.URLEncoder.encode(Utils.toGoogleFormat(codes.get(i)).toString(), "UTF-8"));
+            for (int i = 0, size = codes.size(); i < size; i++) {
+                if (i > 0) {
+                    builder.append(",");
+                }
+                Code _code = codes.get(i);
+                String googleFormat = UnitedStatesGoogleFormatCodeLookup.INSTANCE.get(_code);
+                if (googleFormat == null) {
+                    googleFormat = Utils.toGoogleFormat(_code).toString();
+                }
+                builder.append(java.net.URLEncoder.encode(googleFormat, "UTF-8"));
+                originalCodes.put(googleFormat, _code);
             }
             
             final String location = builder.toString();
@@ -167,95 +111,49 @@ public class GoogleStockServer implements StockServer {
             }
             
             final List<Stock> stocks = new ArrayList<Stock>();
+            Set<Code> currCodes = new HashSet<Code>();
+            
+            // Let's say London stock exchange & OTCMKTS stock exchange both
+            // contains LON:ENVS and OTCMKTS:ENVS respectively. Making query 
+            // using "ENVS" will return LON:ENVS. In such case, we need to
+            // perform some special treaty.
+            List<Stock> specialUSStocks = new ArrayList<Stock>();
+            
             for (int i = 0, size = jsonArray.size(); i < size; i++) {
                 final Map<String, String> jsonObject = jsonArray.get(i);
-                String name;
-                final String ticker;
-                final String exchange;
-                
-                try {
-                    name = jsonObject.get("name");
-                    name = name.substring(0, Math.min(SYMBOL_MAX_LENGTH, name.length())).trim();
-                    ticker = jsonObject.get("t").toUpperCase();
-                    exchange = jsonObject.get("e").toUpperCase();
-                } catch (Exception ex) {
-                    log.error(null, ex);
-                    continue;
-                }
-                
-                Code code = getOriginalCode(originalCodes, ticker, exchange);
-                if (code == null) {
-                    continue;
-                }
-                
-                double c = 0;
-                double l = 0;
-                double p = 0;
-                double op = 0;
-                double hi = 0;
-                double lo = 0;
-                long vo = 0;
-                double cp = 0;
-                
-                // Change
-                try { c = Double.parseDouble(jsonObject.get("c").replaceAll("[^0-9\\.\\-]", "")); } catch (NumberFormatException ex) { log.error(null, ex); }
-                // Last
-                try {l = Double.parseDouble(jsonObject.get("l").replaceAll("[^0-9\\.]", "")); } catch (NumberFormatException ex) { log.error(null, ex); }
-                // Prev
-                try { p = l - c; } catch (NumberFormatException ex) { log.error(null, ex); }
-                // Open
-                try { op = Double.parseDouble(jsonObject.get("op").replaceAll("[^0-9\\.\\-]", "")); } catch (NumberFormatException ex) { log.error(null, ex); }
-                // High
-                try { hi = Double.parseDouble(jsonObject.get("hi").replaceAll("[^0-9\\.]", "")); } catch (NumberFormatException ex) { log.error(null, ex); }
-                // Low
-                try { lo = Double.parseDouble(jsonObject.get("lo").replaceAll("[^0-9\\.]", "")); } catch (NumberFormatException ex) { log.error(null, ex); }
-                // Vol
-                try { 
-                    String vo_string = jsonObject.get("vo");
-                    vo = (long)Double.parseDouble(vo_string.replaceAll("[^0-9\\.]", "")); 
-                    if (vo_string.endsWith("K")) {
-                        vo = vo * 1000;
-                    } else if (vo_string.endsWith("M")) {
-                        vo = vo * 1000000;
-                    } else if (vo_string.endsWith("B")) {
-                        vo = vo * 1000000000;
+                Pair<Stock, Boolean> stockEx = toStockEx(jsonObject, originalCodes);
+                if (stockEx != null) {
+                    final Stock stock = stockEx.first;
+                    if (stockEx.second) {
+                        if (false == currCodes.contains(stock.code)) {
+                            stocks.add(stock);
+                            currCodes.add(stock.code);
+                        }
+                    } else {
+                        specialUSStocks.add(stockEx.first);
                     }
-                } catch (NumberFormatException ex) { log.error(null, ex); }
-                // Change Percentage
-                try { cp = Double.parseDouble(jsonObject.get("cp").replaceAll("[^0-9\\.\\-]", "")); } catch (NumberFormatException ex) { log.error(null, ex); }
-                // No last volumne information for Google Finance.
-                // No buy price information for Google Finance.
-                // No buy volume information for Google Finance.
-                // No sell price information for Google Finance.
-                // No sell volume information for Google Finance.                    
-                final Stock stock = new Stock.Builder(code, Symbol.newInstance(name))
-                        .name(name)
-                        .changePrice(c)
-                        .lastPrice(l)
-                        .prevPrice(p)
-                        .openPrice(op)
-                        .highPrice(hi)
-                        .lowPrice(lo)
-                        .volume(vo)
-                        .changePricePercentage(cp)
-                        .build();
-                stocks.add(stock);
+                }
             } 
 
-            Set<Code> currCodes = new HashSet<Code>();
-            List<Stock> emptyStocks = new ArrayList<Stock>();
-
-            for (Stock stock : stocks) {
-                currCodes.add(stock.code);
+            // Special US stock handling.
+            List<Code> specialUSCodes = new ArrayList<Code>();
+            for (Stock stock : specialUSStocks) {
+                specialUSCodes.add(stock.code);
+            }
+            specialUSStocks = getSpecialUSStocks(specialUSCodes);
+            
+            for (Stock stock : specialUSStocks) {
+                if (false == currCodes.contains(stock.code)) {
+                    stocks.add(stock);
+                    currCodes.add(stock.code);
+                }
             }
 
             for (Code code : codes) {
-                if (currCodes.contains(code) == false) {
-                    emptyStocks.add(org.yccheok.jstock.gui.Utils.getEmptyStock(code, Symbol.newInstance(code.toString())));
+                if (false == currCodes.contains(code)) {
+                    stocks.add(org.yccheok.jstock.engine.Utils.getEmptyStock(code, Symbol.newInstance(code.toString())));
                 }
             }
-
-            stocks.addAll(emptyStocks);
 
             if (stocks.size() != codes.size()) {
                 throw new StockNotFoundException("Stock size (" + stocks.size() + ") inconsistent with code size (" + codes.size() + ")");
@@ -269,6 +167,196 @@ public class GoogleStockServer implements StockServer {
             // in the JSON string.
             throw new StockNotFoundException(null, ex);
         }
+    }
+    
+    private List<Stock> getSpecialUSStocks(List<Code> codes) {
+        if (codes.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        
+        Map<String, Code> originalCodes = new HashMap<String, Code>();
+                
+        // Use StringBuilder instead of StringBuffer. We do not concern on 
+        // thread safety.
+        final StringBuilder builder = new StringBuilder("https://www.google.com/finance/info?infotype=infoquoteall&q=");
+        try {
+            // Exception will be thrown from apache httpclient, if we do not
+            // perform URL encoding.
+            for (int i = 0, size = codes.size(); i < size; i++) {
+                if (i > 0) {
+                    builder.append(",");
+                }
+                Code _code = codes.get(i);
+                
+                String googleFormat0 = "NYSE:" + _code;
+                String googleFormat1 = "NASDAQ:" + _code;
+                String googleFormat2 = "NYSEARCA:" + _code;
+                String googleFormat3 = "NYSEMKT:" + _code;
+                String googleFormat4 = "OPRA:" + _code;
+                String googleFormat5 = "OTCBB:" + _code;
+                String googleFormat6 = "OTCMKTS:" + _code;
+                originalCodes.put(googleFormat0, _code);
+                originalCodes.put(googleFormat1, _code);
+                originalCodes.put(googleFormat2, _code);
+                originalCodes.put(googleFormat3, _code);
+                originalCodes.put(googleFormat4, _code);
+                originalCodes.put(googleFormat5, _code);
+                originalCodes.put(googleFormat6, _code);
+                
+                builder.append(java.net.URLEncoder.encode(googleFormat0, "UTF-8"));
+                builder.append(",");
+                builder.append(java.net.URLEncoder.encode(googleFormat1, "UTF-8"));
+                builder.append(",");
+                builder.append(java.net.URLEncoder.encode(googleFormat2, "UTF-8"));
+                builder.append(",");
+                builder.append(java.net.URLEncoder.encode(googleFormat3, "UTF-8"));
+                builder.append(",");
+                builder.append(java.net.URLEncoder.encode(googleFormat4, "UTF-8"));
+                builder.append(",");
+                builder.append(java.net.URLEncoder.encode(googleFormat5, "UTF-8"));
+                builder.append(",");
+                builder.append(java.net.URLEncoder.encode(googleFormat6, "UTF-8"));
+            }
+            
+            final String location = builder.toString();
+            final String _respond = org.yccheok.jstock.gui.Utils.getResponseBodyAsStringBasedOnProxyAuthOption(location);
+            if (_respond == null) {
+                return java.util.Collections.emptyList();
+            }
+            final String respond = Utils.GoogleRespondToJSON(_respond);
+            // Google returns "// [ { "id": ... } ]".
+            // We need to turn them into "[ { "id": ... } ]".
+            final List<Map> jsonArray = gson.fromJson(respond, List.class);
+            
+            if (jsonArray == null) {
+                return java.util.Collections.emptyList();
+            }
+            
+            Collections.sort(jsonArray, new Comparator<Map>() {
+                @Override
+                public int compare(Map o0, Map o1) {
+                    Object s0 = o0.get("e");
+                    Object s1 = o1.get("e");
+                    String e0 = s0 instanceof String ? (String)s0 : null;
+                    String e1 = s1 instanceof String ? (String)s1 : null;
+                    return Integer.compare(Utils.getGoogleUnitedStatesStockExchangePriority(e0), Utils.getGoogleUnitedStatesStockExchangePriority(e1));
+                }            
+            });
+
+            final List<Stock> stocks = new ArrayList<Stock>();
+            Set<Code> currCodes = new HashSet<Code>();
+            
+            for (int i = 0, size = jsonArray.size(); i < size; i++) {
+                final Map<String, String> jsonObject = jsonArray.get(i);
+                Pair<Stock, Boolean> stockEx = toStockEx(jsonObject, originalCodes);
+                if (stockEx != null) {
+                    final Stock stock = stockEx.first;
+                    if (stockEx.second) {
+                        if (false == currCodes.contains(stock.code)) {
+                            stocks.add(stock);
+                            currCodes.add(stock.code);
+                        }
+                    }
+                }
+            }  
+
+            return stocks;                
+        } catch (UnsupportedEncodingException ex) {
+            log.error(null, ex);
+            return java.util.Collections.emptyList();
+        } catch (Exception ex) {
+            log.error(null, ex);
+            // Jackson library may cause runtime exception if there is error
+            // in the JSON string.
+            return java.util.Collections.emptyList();
+        }        
+    }
+
+    
+    private Pair<Stock, Boolean> toStockEx(Map<String, String> jsonObject, Map<String, Code> originalCodes) {
+        String name;
+        final String ticker;
+        final String exchange;
+
+        try {
+            name = jsonObject.get("name");
+            name = name.substring(0, Math.min(SYMBOL_MAX_LENGTH, name.length())).trim();
+            ticker = jsonObject.get("t").toUpperCase();
+            exchange = jsonObject.get("e").toUpperCase();
+        } catch (Exception ex) {
+            log.error(null, ex);
+            return null;
+        }
+
+        Code code = getOriginalCode(originalCodes, ticker, exchange);
+        if (code == null) {
+            return null;
+        }
+
+        if (Utils.isUSStock(code)) {
+            if (false == Utils.isGoogleUnitedStatesStockExchange(exchange)) {
+                return Pair.create(Utils.getEmptyStock(code, Symbol.newInstance(code.toString())), false);
+            } else {
+                // code and ticker might be different. For example, 
+                //
+                // code   = RDS-B (Yahoo! Format)
+                // ticker = RDS.B (Google Format)
+                UnitedStatesGoogleFormatCodeLookup.INSTANCE.put(code, exchange + ":" + ticker);
+            }
+        }
+        
+        double c = 0;
+        double l = 0;
+        double p = 0;
+        double op = 0;
+        double hi = 0;
+        double lo = 0;
+        long vo = 0;
+        double cp = 0;
+
+        // Change
+        try { c = Double.parseDouble(jsonObject.get("c").replaceAll("[^0-9\\.\\-]", "")); } catch (NumberFormatException ex) { log.error(null, ex); }
+        // Last
+        try {l = Double.parseDouble(jsonObject.get("l").replaceAll("[^0-9\\.]", "")); } catch (NumberFormatException ex) { log.error(null, ex); }
+        // Prev
+        try { p = l - c; } catch (NumberFormatException ex) { log.error(null, ex); }
+        // Open
+        try { op = Double.parseDouble(jsonObject.get("op").replaceAll("[^0-9\\.\\-]", "")); } catch (NumberFormatException ex) { log.error(null, ex); }
+        // High
+        try { hi = Double.parseDouble(jsonObject.get("hi").replaceAll("[^0-9\\.]", "")); } catch (NumberFormatException ex) { log.error(null, ex); }
+        // Low
+        try { lo = Double.parseDouble(jsonObject.get("lo").replaceAll("[^0-9\\.]", "")); } catch (NumberFormatException ex) { log.error(null, ex); }
+        // Vol
+        try { 
+            String vo_string = jsonObject.get("vo");
+            vo = (long)Double.parseDouble(vo_string.replaceAll("[^0-9\\.]", "")); 
+            if (vo_string.endsWith("K")) {
+                vo = vo * 1000;
+            } else if (vo_string.endsWith("M")) {
+                vo = vo * 1000000;
+            } else if (vo_string.endsWith("B")) {
+                vo = vo * 1000000000;
+            }
+        } catch (NumberFormatException ex) { log.error(null, ex); }
+        // Change Percentage
+        try { cp = Double.parseDouble(jsonObject.get("cp").replaceAll("[^0-9\\.\\-]", "")); } catch (NumberFormatException ex) { log.error(null, ex); }
+        // No last volume information for Google Finance.
+        // No buy price information for Google Finance.
+        // No buy volume information for Google Finance.
+        // No sell price information for Google Finance.
+        // No sell volume information for Google Finance.                    
+        final Stock stock = new Stock.Builder(code, Symbol.newInstance(name))
+                .name(name)
+                .changePrice(c)
+                .lastPrice(l)
+                .prevPrice(p)
+                .openPrice(op)
+                .highPrice(hi)
+                .lowPrice(lo)
+                .volume(vo)
+                .changePricePercentage(cp)
+                .build();
+        return Pair.create(stock, true);
     }
     
     private static final int SYMBOL_MAX_LENGTH = 17;

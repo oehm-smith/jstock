@@ -1,6 +1,6 @@
 /*
  * JStock - Free Stock Market Software
- * Copyright (C) 2013 Yan Cheng CHEOK <yccheok@yahoo.com>
+ * Copyright (C) 2014 Yan Cheng Cheok <yccheok@yahoo.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,7 +48,78 @@ public class Utils {
     private Utils() {
     }   
 
+    /**
+     * Returns empty stock based on given stock info.
+     *
+     * @param stockInfo the stock info
+     * @return empty stock based on given stock info
+     */
+    public static Stock getEmptyStock(StockInfo stockInfo) {
+        return getEmptyStock(stockInfo.code, stockInfo.symbol);
+    }
 
+    /**
+     * Returns empty stock based on given code and symbol.
+     *
+     * @param code the code
+     * @param symbol the symbol
+     * @return empty stock based on given code and symbol
+     */
+    public static Stock getEmptyStock(Code code, Symbol symbol) {
+        return new Stock(   code,
+                            symbol,
+                            "",
+                            Stock.Board.Unknown,
+                            Stock.Industry.Unknown,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0,
+                            0.0,
+                            0.0,
+                            0,
+                            0.0,
+                            0,
+                            0.0,
+                            0,
+                            0.0,
+                            0,
+                            0.0,
+                            0,
+                            0.0,
+                            0,
+                            0.0,
+                            0,
+                            System.currentTimeMillis()                              
+                            );                
+    } 
+    
+    public static Country toCountry(Code code) {
+        assert(countries.keySet().size() == 42);
+        
+        String string = code.toString();
+        int index = string.lastIndexOf(".");
+        if (index == -1) {
+            if (isYahooIndexSubset(code)) {
+                Country country = indices.get(string.toUpperCase());
+                if (country == null) {
+                    return Country.UnitedState;
+                }
+                return country;
+            }
+            
+            return Country.UnitedState;
+        }
+        String key = string.substring(index + 1, string.length());
+        Country country = countries.get(key.toUpperCase());
+        if (country == null) {
+            return Country.UnitedState;
+        }
+        return country;
+    }
+    
     /**
      * Generate the best online database result if possible so that it is
      * acceptable by JStock application.
@@ -163,10 +234,10 @@ public class Utils {
      * @param country The country of the stock market
      * @return Location of the stocks CSV file.
      */
-    public static String getStocksCSVFileLocation(Country country) {
+    public static String getStocksCSVZipFileLocation(Country country) {
         // Must use lower case, as Google App Engine only support URL in lower
         // case.
-        return org.yccheok.jstock.network.Utils.getJStockStaticServer() + "stocks_information/" + country.toString().toLowerCase() + "/" + "stocks.csv";
+        return org.yccheok.jstock.network.Utils.getJStockStaticServer() + "stocks_information/" + country.toString().toLowerCase() + "/" + "stocks.zip";
     }
 
     /**
@@ -319,65 +390,18 @@ public class Utils {
         return result;
     }
     
-    private static final List<Index> australiaIndices = new ArrayList<Index>();
-    private static final List<Index> austriaIndices = new ArrayList<Index>();
-    private static final List<Index> belgiumIndices = new ArrayList<Index>();
-    private static final List<Index> brazilIndices = new ArrayList<Index>();
-    private static final List<Index> canadaIndices = new ArrayList<Index>();
-    private static final List<Index> chinaIndices = new ArrayList<Index>();
-    private static final List<Index> denmarkIndices = new ArrayList<Index>();
-    private static final List<Index> franceIndices = new ArrayList<Index>();
-    private static final List<Index> germanyIndices = new ArrayList<Index>();
-    private static final List<Index> hongkongIndices = new ArrayList<Index>();
-    private static final List<Index> indiaIndices = new ArrayList<Index>();
-    private static final List<Index> indonesiaIndices = new ArrayList<Index>();
-    private static final List<Index> israelIndices = new ArrayList<Index>();
-    private static final List<Index> italyIndices = new ArrayList<Index>();
-    private static final List<Index> koreaIndices = new ArrayList<Index>();
-    private static final List<Index> malaysiaIndices = new ArrayList<Index>();
-    private static final List<Index> netherlandsIndices = new ArrayList<Index>();
-    private static final List<Index> newZealandIndices = new ArrayList<Index>();
-    private static final List<Index> norwayIndices = new ArrayList<Index>();
-    private static final List<Index> portugalIndices = new ArrayList<Index>();
-    private static final List<Index> singaporeIndices = new ArrayList<Index>();
-    private static final List<Index> spainIndices = new ArrayList<Index>();
-    private static final List<Index> swedenIndices = new ArrayList<Index>();
-    private static final List<Index> switzerlandIndices = new ArrayList<Index>();
-    private static final List<Index> taiwanIndices = new ArrayList<Index>();
-    private static final List<Index> unitedKingdomIndices = new ArrayList<Index>();
-    private static final List<Index> unitedStateIndices = new ArrayList<Index>();
-    
+    private static final Map<Country, List<Index>> country2Indices = new EnumMap<Country, List<Index>>(Country.class);
+
     static
     {
-        austriaIndices.add(Index.ATX);
-        australiaIndices.add(Index.AORD);
-        belgiumIndices.add(Index.BFX);
-        brazilIndices.add(Index.BVSP);
-        canadaIndices.add(Index.GSPTSE);
-        chinaIndices.add(Index.SSEC);
-        denmarkIndices.add(Index.OMXC20CO);
-        franceIndices.add(Index.FCHI);  
-        germanyIndices.add(Index.DAX);
-        hongkongIndices.add(Index.HSI);
-        indiaIndices.add(Index.BSESN);
-        indiaIndices.add(Index.NSEI);
-        indonesiaIndices.add(Index.JKSE);
-        israelIndices.add(Index.TA100);
-        italyIndices.add(Index.FTSEMIB);
-        koreaIndices.add(Index.KS11);
-        malaysiaIndices.add(Index.KLSE);
-        netherlandsIndices.add(Index.AEX);
-        newZealandIndices.add(Index.NZSX50);
-        norwayIndices.add(Index.OSEAX);
-        portugalIndices.add(Index.PSI20);
-        singaporeIndices.add(Index.STI);
-        spainIndices.add(Index.SMSI);
-        swedenIndices.add(Index.OMX30);
-        switzerlandIndices.add(Index.SSMI);
-        taiwanIndices.add(Index.TWII);
-        unitedKingdomIndices.add(Index.FTSE);
-        unitedStateIndices.add(Index.DJI);        
-        unitedStateIndices.add(Index.IXIC);        
+        for (Index index : Index.values()) {
+            List<Index> indices = country2Indices.get(index.country);
+            if (indices == null) {
+                indices = new ArrayList<Index>();
+                country2Indices.put(index.country, indices);
+            }
+            indices.add(index);
+        }
     }
 
     /**
@@ -386,17 +410,29 @@ public class Utils {
      * @param code the code
      * @return code in Google's format
      */
-    public static Code toGoogleFormat(Code code) {
-        if (isYahooIndex(code)) {
+    public static String toGoogleFormat(Code code) {
+        if (isYahooIndexSubset(code)) {
             return toGoogleIndex(code);
+        } else if (isYahooCurrency(code)) {
+            return toGoogleCurrency(code);
+        }
+
+        String string = code.toString().trim().toUpperCase();
+
+        // WTF?! Handle case for RDS-B (Yahoo Finance) & RDS.B (Google Finance)
+        if (toCountry(code) == Country.UnitedState) {
+            String googleFormat = UnitedStatesGoogleFormatCodeLookup.INSTANCE.get(code);
+            if (googleFormat != null) {
+                return googleFormat;
+            }
+            return string.replaceAll("-", ".");
         }
         
-        String string = code.toString().trim().toUpperCase();
         final int string_length = string.length();
         if (string.endsWith(".N") && string_length > ".N".length()) {
-            return Code.newInstance("NSE:" + string.substring(0, string_length - ".N".length()));
+            return "NSE:" + string.substring(0, string_length - ".N".length());
         } else if (string.endsWith(".B") && string_length > ".B".length()) {
-            return Code.newInstance("BOM:" + string.substring(0, string_length - ".B".length()));
+            return "BOM:" + string.substring(0, string_length - ".B".length());
         } else if (string.endsWith(".NS") && string_length > ".NS".length()) {
             // Resolving Yahoo server down for India NSE stock market. Note, we
             // do not support Bombay stock market at this moment, due to the
@@ -405,73 +441,55 @@ public class Utils {
             string = string.substring(0, string_length - ".NS".length());
             String googleFormat = toGoogleFormatThroughAutoComplete(string, "NSE");
             if (googleFormat != null) {
-                return Code.newInstance("NSE:" + googleFormat);
+                return "NSE:" + googleFormat;
             }
         } else if (string.endsWith(".SS") && string_length > ".SS".length()) {
-            string = "SHA:" + string.substring(0, string_length - ".SS".length());
-            return Code.newInstance(string);
+            return "SHA:" + string.substring(0, string_length - ".SS".length());
         } else if (string.endsWith(".SZ") && string_length > ".SZ".length()) {
-            string = "SHE:" + string.substring(0, string_length - ".SZ".length());
-            return Code.newInstance(string);
-        }
-        return code;
-    }
-    
-    public static Code toYahooFormat(Code code) {
-        String string = code.toString().trim().toUpperCase();
-        final int string_length = string.length();
-        if (string.startsWith("SHA:") && string_length > "SHA:".length()) {
-            string = string.substring("SHA:".length()) + ".SS";
-            return Code.newInstance(string);
-        } else if (string.startsWith("SHE:") && string_length > "SHE:".length()) {
-            string = string.substring("SHE:".length()) + ".SZ";
-            return Code.newInstance(string);
-        } else if (string.startsWith("NASDAQ:") && string_length > "NASDAQ:".length()) {
-            string = string.substring("NASDAQ:".length());
-            return Code.newInstance(string);
-        } else if (string.startsWith("NYSE:") && string_length > "NYSE:".length()) {
-            string = string.substring("NYSE:".length());
-            return Code.newInstance(string);
+            return "SHE:" + string.substring(0, string_length - ".SZ".length());
+        } else if (string.endsWith(".SA") && string_length > ".SA".length()) {
+            return "BVMF:" + string.substring(0, string_length - ".SA".length());
+        } else if (string.endsWith(".VI") && string_length > ".VI".length()) {
+            return "VIE:" + string.substring(0, string_length - ".VI".length());
+        } else if (string.endsWith(".L") && string_length > ".L".length()) {
+            return "LON:" + string.substring(0, string_length - ".L".length());
+        } else if (string.endsWith(".SI") && string_length > ".SI".length()) {
+            return "SGX:" + string.substring(0, string_length - ".SI".length());
+        } else if (string.endsWith(".TW") && string_length > ".TW".length()) {
+            return "TPE:" + string.substring(0, string_length - ".TW".length());
         }
         
-        Code newCode = toYahooIndex(code);
-        return newCode;
+        return string;
     }
     
-    public static boolean isYahooIndex(Code code) {
+    private static boolean isYahooIndexSubset(Code code) {
         return code.toString().startsWith("^");
     }
     
-    private static Code toYahooIndex(Code code) {
-        String string = code.toString().trim().toUpperCase();
-        if (string.equals("INDEXDJX:.DJI")) {
-            return Code.newInstance("^DJI");
-        } else if (string.equals("INDEXNASDAQ:.IXIC")) {
-            return Code.newInstance("^IXIC");
-        } else if (string.equals("INDEXBOM:SENSEX")) {
-            return Code.newInstance("^BSESN");
-        } else if (string.equals("NSE:NIFTY")) {
-            return Code.newInstance("^NSEI");
-        } else if (string.equals("NSE:BANKNIFTY")) {
-            return Code.newInstance("^NSEBANK");
-        }
-        return code;        
+    public static boolean isUSStock(Code code) {
+        return Utils.toCountry(code) == Country.UnitedState && !Utils.isYahooCurrency(code) && !Utils.isYahooIndexSubset(code);
     }
     
-    public static Code toGoogleIndex(Code code) {
+    public static boolean isYahooCurrency(Code code) {
+        return code.toString().toUpperCase().endsWith("=X");
+    }
+    
+    private static String toGoogleIndex(Code code) {
         String string = code.toString().trim().toUpperCase();
-        if (string.equals("^DJI")) {
-            return Code.newInstance("INDEXDJX:.DJI");
-        } else if (string.equals("^IXIC")) {
-            return Code.newInstance("INDEXNASDAQ:.IXIC");
-        } else if (string.equals("^BSESN")) {
-            return Code.newInstance("INDEXBOM:SENSEX");
-        } else if (string.equals("^NSEI")) {
-            return Code.newInstance("NSE:NIFTY");
-        } else if (string.equals("^NSEBANK")) {
-            return Code.newInstance("NSE:BANKNIFTY");
+        String googleIndex = toGoogleIndex.get(string);
+        if (googleIndex != null) {
+            return googleIndex;
         }
-        return code;
+        return string;
+    }
+    
+    private static String toGoogleCurrency(Code code) {
+        String string = code.toString().trim().toUpperCase();
+        int index = string.indexOf("=X");
+        if (index > 0) {
+            return string.substring(0, index);
+        }
+        return string;
     }
     
     // FIXME : Make it private.
@@ -585,64 +603,10 @@ public class Utils {
     }
 
     public static List<Index> getStockIndices(Country country) {
-        switch (country)
-        {
-            case Australia:
-                return java.util.Collections.unmodifiableList(Utils.australiaIndices);
-            case Austria:
-                return java.util.Collections.unmodifiableList(Utils.austriaIndices);
-            case Belgium:
-                return java.util.Collections.unmodifiableList(Utils.belgiumIndices);
-            case Brazil:
-                return java.util.Collections.unmodifiableList(Utils.brazilIndices);
-            case Canada:
-                return java.util.Collections.unmodifiableList(Utils.canadaIndices);
-            case China:
-                return java.util.Collections.unmodifiableList(Utils.chinaIndices);
-            case Denmark:
-                return java.util.Collections.unmodifiableList(Utils.denmarkIndices);
-            case France:
-                return java.util.Collections.unmodifiableList(Utils.franceIndices);
-            case Germany:
-                return java.util.Collections.unmodifiableList(Utils.germanyIndices);
-            case HongKong:
-                return java.util.Collections.unmodifiableList(Utils.hongkongIndices);
-            case India:
-                return java.util.Collections.unmodifiableList(Utils.indiaIndices);
-            case Indonesia:
-                return java.util.Collections.unmodifiableList(Utils.indonesiaIndices);
-            case Israel:
-                return java.util.Collections.unmodifiableList(Utils.israelIndices);
-            case Italy:
-                return java.util.Collections.unmodifiableList(Utils.italyIndices);
-            case Korea:
-                return java.util.Collections.unmodifiableList(Utils.koreaIndices);
-            case Malaysia:
-                return java.util.Collections.unmodifiableList(Utils.malaysiaIndices);
-            case Netherlands:
-                return java.util.Collections.unmodifiableList(Utils.netherlandsIndices);
-            case NewZealand:
-                return java.util.Collections.unmodifiableList(Utils.newZealandIndices);
-            case Norway:
-                return java.util.Collections.unmodifiableList(Utils.norwayIndices);
-            case Portugal:
-                return java.util.Collections.unmodifiableList(Utils.portugalIndices);
-            case Singapore:
-                return java.util.Collections.unmodifiableList(Utils.singaporeIndices);
-            case Spain:
-                return java.util.Collections.unmodifiableList(Utils.spainIndices);
-            case Sweden:
-                return java.util.Collections.unmodifiableList(Utils.swedenIndices);
-            case Switzerland:
-                return java.util.Collections.unmodifiableList(Utils.switzerlandIndices);
-            case Taiwan:
-                return java.util.Collections.unmodifiableList(Utils.taiwanIndices);
-            case UnitedKingdom:
-                return java.util.Collections.unmodifiableList(Utils.unitedKingdomIndices);                
-            case UnitedState:
-                return java.util.Collections.unmodifiableList(Utils.unitedStateIndices);
+        List<Index> indices = country2Indices.get(country);
+        if (indices != null) {
+            return java.util.Collections.unmodifiableList(indices);
         }
-        
         return java.util.Collections.emptyList();
     }
 
@@ -738,6 +702,231 @@ public class Utils {
         }
         // This is an invalid value.
         return 0L;
+    }
+    
+    public static int getGoogleUnitedStatesStockExchangePriority(String e) {
+        Integer priority = googleUnitedStatesStockExchanges.get(e);
+        if (priority == null) {
+            return Integer.MAX_VALUE;
+        }
+        return priority;
+    }
+    
+    public static String toCompleteUnitedStatesGoogleFormat(Code code) {
+        if (false == Utils.isUSStock(code)) {
+            return null;
+        }
+        
+        // Use toGoogleFormat, as it will handle case for RDS-B (Yahoo Finance) 
+        // & RDS.B (Google Finance)
+        final String googleFormat = toGoogleFormat(code);
+        if (googleFormat.contains(":")) {
+            return googleFormat;
+        }
+        
+        String[] exchanges = {"NYSE:", "NASDAQ:", "NYSEARCA:", "NYSEMKT:", "OPRA:", "OTCBB:", "OTCMKTS:"};
+        final StringBuilder builder = new StringBuilder("https://www.google.com/finance/info?infotype=infoquoteall&q=");
+        
+        try {
+            
+            builder.append(java.net.URLEncoder.encode(exchanges[0] + code, "UTF-8"));
+            for (int i = 1, ei = exchanges.length; i < ei; i++) {
+                builder.append(",");
+                builder.append(java.net.URLEncoder.encode(exchanges[i] + code, "UTF-8"));
+            }
+        } catch (UnsupportedEncodingException ex) {
+            log.error(null, ex);
+            return null;
+        } 
+        
+        final String location = builder.toString();
+        final String _respond = org.yccheok.jstock.gui.Utils.getResponseBodyAsStringBasedOnProxyAuthOption(location);
+        if (_respond == null) {
+            return null;
+        }
+
+        final String respond = Utils.GoogleRespondToJSON(_respond);
+        // Google returns "// [ { "id": ... } ]".
+        // We need to turn them into "[ { "id": ... } ]".
+        final List<Map> jsonArray = gson.fromJson(respond, List.class);
+
+        if (jsonArray == null) {
+            return null;
+        }
+        
+        List<Pair<String, String>> pairs = new ArrayList<Pair<String, String>>();
+        
+        for (Map<String, String> jsonObject : jsonArray) {
+            try {
+                String ticker = jsonObject.get("t").toUpperCase();
+                String exchange = jsonObject.get("e").toUpperCase();
+                pairs.add(Pair.create(ticker, exchange));
+            } catch (Exception ex) {
+                log.error(null, ex);
+            }
+        }
+        
+        if (pairs.isEmpty()) {
+            return null;
+        }
+        
+        Collections.sort(pairs, new Comparator<Pair<String, String>>() {
+
+            @Override
+            public int compare(Pair<String, String> o0, Pair<String, String> o1) {
+                String e0 = o0.second;
+                String e1 = o1.second;                
+                return Integer.compare(getGoogleUnitedStatesStockExchangePriority(e0), getGoogleUnitedStatesStockExchangePriority(e1));
+            }            
+        });
+        
+        Pair<String, String> pair = pairs.get(0);
+        final String result = pair.second + ":" + pair.first;
+        UnitedStatesGoogleFormatCodeLookup.INSTANCE.put(code, result);
+        
+        return result; 
+    }
+    
+    // https://www.google.com/intl/en/googlefinance/disclaimer/
+    public static boolean isGoogleUnitedStatesStockExchange(String e) {
+        return googleUnitedStatesStockExchanges.containsKey(e);
+    }
+    
+    public static PriceSource getDefaultPriceSource(Country country) {
+        assert(defaultPriceSources.containsKey(country));
+        return defaultPriceSources.get(country);
+    }
+    
+    public static Set<PriceSource> getSupportedPriceSources(Country country) {
+        List<StockServerFactory> stockServerFactories = Factories.INSTANCE.getStockServerFactories(country);
+        Set<PriceSource> set = EnumSet.noneOf(PriceSource.class);
+        for (StockServerFactory stockServerFactory : stockServerFactories) {
+            PriceSource priceSource = classToPriceSourceMap.get(stockServerFactory.getClass());
+            if (priceSource != null) {
+                set.add(priceSource);
+            }
+        }
+        return set;
+    }
+    
+    private static final Map<String, Country> countries = new HashMap<String, Country>();
+    private static final Map<String, Country> indices = new HashMap<String, Country>();
+    private static final Map<String, String> toGoogleIndex = new HashMap<String, String>();
+    private static final Map<Country, PriceSource> defaultPriceSources = new HashMap<Country, PriceSource>();
+    private static final Map<Class<? extends StockServerFactory>, PriceSource> classToPriceSourceMap = new HashMap<Class<? extends StockServerFactory>, PriceSource>();
+    private static final Map<String, Integer> googleUnitedStatesStockExchanges = new HashMap<String, Integer>();
+    
+    static {
+        countries.put("AX", Country.Australia);
+        countries.put("VI", Country.Austria);
+        countries.put("SA", Country.Brazil);
+        countries.put("TO", Country.Canada);
+        countries.put("V", Country.Canada); // TSXV
+        
+        countries.put("SS", Country.China);
+        countries.put("SZ", Country.China);
+        
+        countries.put("CO", Country.Denmark);
+        countries.put("PA", Country.France);
+
+        countries.put("BE", Country.Germany);
+        countries.put("DE", Country.Germany);
+        countries.put("DU", Country.Germany);
+        countries.put("EX", Country.Germany);
+        countries.put("F", Country.Germany);
+        countries.put("HA", Country.Germany);
+        countries.put("HM", Country.Germany);
+        countries.put("MU", Country.Germany);
+        countries.put("SG", Country.Germany);
+        
+        countries.put("HK", Country.HongKong);
+        
+        countries.put("NS", Country.India);
+        countries.put("N", Country.India);
+        countries.put("B", Country.India);
+        
+        countries.put("JK", Country.Indonesia);
+        countries.put("TA", Country.Israel);
+        countries.put("MI", Country.Italy);
+        countries.put("KQ", Country.Korea);
+        countries.put("KL", Country.Malaysia);
+        countries.put("AS", Country.Netherlands);
+        countries.put("NZ", Country.NewZealand);
+        countries.put("OL", Country.Norway);
+        countries.put("LS", Country.Portugal);
+        countries.put("SI", Country.Singapore);
+        
+        countries.put("BI", Country.Spain);
+        countries.put("BC", Country.Spain);
+        countries.put("MA", Country.Spain);
+        countries.put("MC", Country.Spain);
+        countries.put("VA", Country.Spain);
+        
+        countries.put("SW", Country.Sweden);
+        countries.put("VX", Country.Sweden);
+        
+        countries.put("TW", Country.Taiwan);
+        countries.put("TWO", Country.Taiwan);
+        
+        countries.put("L", Country.UnitedKingdom);
+        
+        for (Index index : Index.values()) {
+            indices.put(index.code.toString(), index.country);
+        }
+        
+        toGoogleIndex.put("^DJI", "INDEXDJX:.DJI");
+        toGoogleIndex.put("^IXIC", "INDEXNASDAQ:.IXIC");
+        toGoogleIndex.put("^BSESN", "INDEXBOM:SENSEX");
+        toGoogleIndex.put("^NSEI", "NSE:NIFTY");
+        toGoogleIndex.put("^NSEBANK", "NSE:BANKNIFTY");
+        toGoogleIndex.put("^BVSP", "INDEXBVMF:IBOV");
+        toGoogleIndex.put("^ATX", "INDEXVIE:ATX");
+        toGoogleIndex.put("^FTSE", "INDEXFTSE:UKX");
+        toGoogleIndex.put("^TWII", "TPE:TAIEX");
+        
+        // TODO : Need revision. We no longer have primaryStockServerFactoryClasses
+        // concept. Going to replace with PriceSource.
+        defaultPriceSources.put(Country.Australia, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Austria, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Belgium, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Brazil, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Canada, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.China, PriceSource.Google);
+        defaultPriceSources.put(Country.Czech, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Denmark, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.France, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Germany, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.HongKong, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.India, PriceSource.Google);
+        defaultPriceSources.put(Country.Indonesia, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Israel, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Italy, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Korea, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Malaysia, PriceSource.KLSEInfo);
+        defaultPriceSources.put(Country.Netherlands, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.NewZealand, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Norway, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Portugal, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Singapore, PriceSource.Google);
+        defaultPriceSources.put(Country.Spain, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Sweden, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Switzerland, PriceSource.Yahoo);
+        defaultPriceSources.put(Country.Taiwan, PriceSource.Google);
+        defaultPriceSources.put(Country.UnitedKingdom, PriceSource.Google);
+        defaultPriceSources.put(Country.UnitedState, PriceSource.Google);
+        
+        classToPriceSourceMap.put(GoogleStockServerFactory.class, PriceSource.Google);
+        classToPriceSourceMap.put(YahooStockServerFactory.class, PriceSource.Yahoo);
+        classToPriceSourceMap.put(BrazilYahooStockServerFactory.class, PriceSource.Yahoo);
+        classToPriceSourceMap.put(KLSEInfoStockServerFactory.class, PriceSource.KLSEInfo);
+        
+        googleUnitedStatesStockExchanges.put("NYSE", 0);
+        googleUnitedStatesStockExchanges.put("NASDAQ", 1);
+        googleUnitedStatesStockExchanges.put("NYSEARCA", 2);
+        googleUnitedStatesStockExchanges.put("NYSEMKT", 3);
+        googleUnitedStatesStockExchanges.put("OPRA", 4);
+        googleUnitedStatesStockExchanges.put("OTCBB", 5);
+        googleUnitedStatesStockExchanges.put("OTCMKTS", 6);
     }
     
     private static final Gson gson = new Gson();

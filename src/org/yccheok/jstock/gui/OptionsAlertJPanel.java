@@ -19,11 +19,9 @@
 
 package org.yccheok.jstock.gui;
 
-import java.util.Locale;
-import java.util.ResourceBundle;
+import com.google.api.client.auth.oauth2.Credential;
+import java.awt.Font;
 import java.util.concurrent.CancellationException;
-import org.yccheok.jstock.alert.GoogleMail;
-import org.yccheok.jstock.alert.GoogleCalendar;
 import java.util.concurrent.ExecutionException;
 import javax.mail.MessagingException;
 import javax.mail.internet.AddressException;
@@ -31,6 +29,8 @@ import javax.swing.*;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.yccheok.jstock.alert.GoogleCalendar;
+import org.yccheok.jstock.alert.GoogleMail;
 import org.yccheok.jstock.internationalization.GUIBundle;
 import org.yccheok.jstock.internationalization.MessagesBundle;
 
@@ -43,6 +43,87 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
     /** Creates new form OptionsAlertJPanel */
     public OptionsAlertJPanel() {
         initComponents();
+        initCredentialEx();
+    }
+    
+    private void signOut() {
+        this.credentialEx = null;
+        jCheckBox3.setSelected(false);
+        org.yccheok.jstock.google.Utils.logoutCalendar();
+        updateGUIState();
+    }
+    
+    private void signIn() {
+        jCheckBox3.setEnabled(false);
+        jButton2.setEnabled(false);
+        jButton4.setEnabled(false);
+        
+        SwingWorker swingWorker = new SwingWorker<Pair<Pair<Credential, String>, Boolean>, Void>() {
+
+            @Override
+            protected Pair<Pair<Credential, String>, Boolean> doInBackground() throws Exception {
+                final Pair<Pair<Credential, String>, Boolean> pair = org.yccheok.jstock.google.Utils.authorizeCalendar();
+                return pair;
+            }
+            
+            @Override
+            public void done() {
+                Pair<Pair<Credential, String>, Boolean> pair = null;
+                
+                try {
+                    pair = this.get();
+                } catch (InterruptedException ex) {
+                    JOptionPane.showMessageDialog(OptionsAlertJPanel.this, ex.getMessage(), GUIBundle.getString("OptionsAlertJPanel_Alert"), JOptionPane.ERROR_MESSAGE);
+                    log.error(null, ex);
+                } catch (ExecutionException ex) {
+                    JOptionPane.showMessageDialog(OptionsAlertJPanel.this, ex.getMessage(), GUIBundle.getString("OptionsAlertJPanel_Alert"), JOptionPane.ERROR_MESSAGE);
+                    log.error(null, ex);
+                }                
+                
+                if (pair != null) {
+                    credentialEx = pair.first;
+                } else {
+                    jCheckBox3.setSelected(false);
+                }
+                
+                updateGUIState();                
+            }
+        };
+        
+        swingWorker.execute();
+    }
+    
+    private void initCredentialEx() {
+        SwingWorker swingWorker = new SwingWorker<Pair<Credential, String>, Void>() {
+
+            @Override
+            protected Pair<Credential, String> doInBackground() throws Exception {
+                final Pair<Credential, String> pair = org.yccheok.jstock.google.Utils.authorizeCalendarOffline();
+                return pair;
+            }
+            
+            @Override
+            public void done() { 
+                Pair<Credential, String> pair = null;
+                
+                try {
+                    pair = this.get();
+                } catch (InterruptedException ex) {
+                    log.error(null, ex);
+                } catch (ExecutionException ex) {
+                    log.error(null, ex);
+                }
+                
+                if (pair != null) {
+                    credentialEx = pair;
+                    jCheckBox3.setSelected(MainFrame.getInstance().getJStockOptions().isSMSEnabled());
+                }
+                
+                updateGUIState();
+            }
+        };
+        
+        swingWorker.execute();
     }
     
     /** This method is called from within the constructor to
@@ -70,17 +151,17 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
         jLabel12 = new javax.swing.JLabel();
         jPanel4 = new javax.swing.JPanel();
         jCheckBox3 = new javax.swing.JCheckBox();
-        jLabel4 = new javax.swing.JLabel();
-        jLabel5 = new javax.swing.JLabel();
-        jTextField3 = new javax.swing.JTextField();
-        jPasswordField2 = new javax.swing.JPasswordField();
-        jButton2 = new javax.swing.JButton();
+        jPanel6 = new javax.swing.JPanel();
         jEditorPane3 = new javax.swing.JEditorPane();
-        jLabel6 = new javax.swing.JLabel();
-        jLabel8 = new javax.swing.JLabel();
+        jPanel2 = new javax.swing.JPanel();
         jLabel9 = new javax.swing.JLabel();
         jComboBox1 = new javax.swing.JComboBox();
         jLabel10 = new javax.swing.JLabel();
+        jButton2 = new javax.swing.JButton();
+        jLabel8 = new javax.swing.JLabel();
+        jPanel7 = new javax.swing.JPanel();
+        jLabel13 = new javax.swing.JLabel();
+        jButton4 = new javax.swing.JButton();
         jPanel5 = new javax.swing.JPanel();
         jCheckBox1 = new javax.swing.JCheckBox();
         jCheckBox4 = new javax.swing.JCheckBox();
@@ -184,7 +265,7 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
                                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                                 .addComponent(jLabel7))
                             .addComponent(jLabel12))))
-                .addContainerGap(103, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -213,35 +294,45 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
         );
 
         jPanel4.setBorder(javax.swing.BorderFactory.createTitledBorder(bundle.getString("OptionsAlertJPanel_SMS"))); // NOI18N
+        jPanel4.setLayout(new java.awt.BorderLayout(5, 5));
 
         jCheckBox3.setText(bundle.getString("OptionsAlertJPanel_SMSThroughGoogleCalendar")); // NOI18N
-        jCheckBox3.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        jCheckBox3.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 0, 0));
         jCheckBox3.setMargin(new java.awt.Insets(0, 0, 0, 0));
-        jCheckBox3.addItemListener(new java.awt.event.ItemListener() {
-            public void itemStateChanged(java.awt.event.ItemEvent evt) {
-                jCheckBox3ItemStateChanged(evt);
-            }
-        });
-
-        jLabel4.setText(bundle.getString("OptionsAlertJPanel_Username")); // NOI18N
-        jLabel4.setEnabled(false);
-
-        jLabel5.setText(bundle.getString("OptionsAlertJPanel_Password")); // NOI18N
-        jLabel5.setEnabled(false);
-
-        jTextField3.setEnabled(false);
-        jTextField3.addActionListener(new java.awt.event.ActionListener() {
+        jCheckBox3.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jTextField3ActionPerformed(evt);
+                jCheckBox3ActionPerformed(evt);
             }
         });
+        jPanel4.add(jCheckBox3, java.awt.BorderLayout.NORTH);
 
-        jPasswordField2.setEnabled(false);
-        jPasswordField2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jPasswordField2ActionPerformed(evt);
+        jPanel6.setLayout(new java.awt.BorderLayout());
+
+        jEditorPane3.setEditable(false);
+        jEditorPane3.setBackground(new java.awt.Color(240, 240, 240));
+        jEditorPane3.setContentType("text/html"); // NOI18N
+        jEditorPane3.setText(bundle.getString("OptionsAlertJPanel_FindOutHowToSetupYourMobilePhone")); // NOI18N
+        jEditorPane3.setEnabled(false);
+        jEditorPane3.addHyperlinkListener(new javax.swing.event.HyperlinkListener() {
+            public void hyperlinkUpdate(javax.swing.event.HyperlinkEvent evt) {
+                jEditorPane3jEditorPane1HyperlinkUpdate(evt);
             }
         });
+        jPanel6.add(jEditorPane3, java.awt.BorderLayout.SOUTH);
+
+        jPanel2.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT));
+
+        jLabel9.setText(bundle.getString("OptionsAlertJPanel_Limit")); // NOI18N
+        jLabel9.setEnabled(false);
+        jPanel2.add(jLabel9);
+
+        jComboBox1.setModel(getComboBoxModel());
+        jComboBox1.setEnabled(false);
+        jPanel2.add(jComboBox1);
+
+        jLabel10.setText(bundle.getString("OptionsAlertJPanel_SMSPerDay")); // NOI18N
+        jLabel10.setEnabled(false);
+        jPanel2.add(jLabel10);
 
         jButton2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/16x16/sms_protocol.png"))); // NOI18N
         jButton2.setText(bundle.getString("OptionsAlertJPanel_TestSMS")); // NOI18N
@@ -251,93 +342,34 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
                 jButton2ActionPerformed(evt);
             }
         });
-
-        jEditorPane3.setBackground(new java.awt.Color(240, 240, 240));
-        jEditorPane3.setContentType("text/html");
-        jEditorPane3.setEditable(false);
-        jEditorPane3.setText(bundle.getString("OptionsAlertJPanel_FindOutHowToSetupYourMobilePhone")); // NOI18N
-        jEditorPane3.setEnabled(false);
-        jEditorPane3.addHyperlinkListener(new javax.swing.event.HyperlinkListener() {
-            public void hyperlinkUpdate(javax.swing.event.HyperlinkEvent evt) {
-                jEditorPane3jEditorPane1HyperlinkUpdate(evt);
-            }
-        });
-
-        jLabel6.setFont(jLabel6.getFont().deriveFont(jLabel6.getFont().getSize()-1f));
-        jLabel6.setText(bundle.getString("OptionsAlertJPanel_EmailExample2")); // NOI18N
-        jLabel6.setEnabled(false);
+        jPanel2.add(jButton2);
 
         jLabel8.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/16x16/spinner.gif"))); // NOI18N
+        jPanel2.add(jLabel8);
 
-        jLabel9.setText(bundle.getString("OptionsAlertJPanel_Limit")); // NOI18N
-        jLabel9.setEnabled(false);
+        jPanel6.add(jPanel2, java.awt.BorderLayout.NORTH);
 
-        jComboBox1.setModel(getComboBoxModel());
-        jComboBox1.setEnabled(false);
+        jPanel4.add(jPanel6, java.awt.BorderLayout.SOUTH);
 
-        jLabel10.setText(bundle.getString("OptionsAlertJPanel_SMSPerDay")); // NOI18N
-        jLabel10.setEnabled(false);
+        jPanel7.setBorder(javax.swing.BorderFactory.createTitledBorder(bundle.getString("OptionsAlertJPanel_GoogleAccount"))); // NOI18N
 
-        javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
-        jPanel4.setLayout(jPanel4Layout);
-        jPanel4Layout.setHorizontalGroup(
-            jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel4Layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jCheckBox3)
-                    .addGroup(jPanel4Layout.createSequentialGroup()
-                        .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel4)
-                            .addComponent(jLabel5)
-                            .addComponent(jLabel9))
-                        .addGap(21, 21, 21)
-                        .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(jPanel4Layout.createSequentialGroup()
-                                .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(jLabel10))
-                            .addGroup(jPanel4Layout.createSequentialGroup()
-                                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                    .addComponent(jPasswordField2)
-                                    .addComponent(jTextField3, javax.swing.GroupLayout.PREFERRED_SIZE, 139, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addGroup(jPanel4Layout.createSequentialGroup()
-                                        .addComponent(jButton2)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(jLabel8))
-                                    .addComponent(jLabel6)))))
-                    .addComponent(jEditorPane3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(105, Short.MAX_VALUE))
-        );
-        jPanel4Layout.setVerticalGroup(
-            jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel4Layout.createSequentialGroup()
-                .addComponent(jCheckBox3, javax.swing.GroupLayout.PREFERRED_SIZE, 20, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jTextField3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel4)
-                    .addComponent(jLabel6))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(jButton2)
-                        .addComponent(jPasswordField2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(jLabel5))
-                    .addGroup(jPanel4Layout.createSequentialGroup()
-                        .addGap(8, 8, 8)
-                        .addComponent(jLabel8)))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jComboBox1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel10)
-                    .addComponent(jLabel9))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 7, Short.MAX_VALUE)
-                .addComponent(jEditorPane3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(16, 16, 16))
-        );
+        jLabel13.setBackground(new java.awt.Color(140, 196, 116));
+        jLabel13.setFont(getRobotoLightFont());
+        jLabel13.setForeground(new java.awt.Color(255, 255, 255));
+        jLabel13.setText("username@email.com");
+        jLabel13.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        jLabel13.setOpaque(true);
+        jPanel7.add(jLabel13);
+
+        jButton4.setText(bundle.getString("OptionsAlertJPanel_SignOut")); // NOI18N
+        jButton4.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton4ActionPerformed(evt);
+            }
+        });
+        jPanel7.add(jButton4);
+
+        jPanel4.add(jPanel7, java.awt.BorderLayout.CENTER);
 
         jPanel5.setBorder(javax.swing.BorderFactory.createTitledBorder(bundle.getString("OptionsAlertJPanel_System"))); // NOI18N
 
@@ -398,7 +430,7 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
                 .addGroup(jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jPanel4, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, 458, Short.MAX_VALUE))
+                    .addComponent(jPanel5, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         jPanel1Layout.setVerticalGroup(
@@ -410,7 +442,7 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
                 .addComponent(jPanel3, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel4, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(29, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
 
         add(jPanel1, java.awt.BorderLayout.CENTER);
@@ -445,26 +477,7 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
         Utils.launchWebBrowser(evt);
 }//GEN-LAST:event_jEditorPane3jEditorPane1HyperlinkUpdate
 
-    private void jCheckBox3ItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_jCheckBox3ItemStateChanged
-        // TODO add your handling code here:
-        updateGUIState();
-    }//GEN-LAST:event_jCheckBox3ItemStateChanged
-
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
-        if (jTextField3.getText().trim().length() == 0)
-        {
-            JOptionPane.showMessageDialog(this, MessagesBundle.getString("warning_message_sms_username_cannot_be_empty"), MessagesBundle.getString("warning_title_sms_username_cannot_be_empty"), JOptionPane.WARNING_MESSAGE);
-            jTextField3.requestFocus();
-            return;
-        }
-
-        if (jPasswordField2.getPassword().length == 0)
-        {
-            JOptionPane.showMessageDialog(this, MessagesBundle.getString("warning_message_sms_password_cannot_be_empty"), MessagesBundle.getString("warning_title_sms_password_cannot_be_empty"), JOptionPane.WARNING_MESSAGE);
-            jPasswordField2.requestFocus();
-            return;
-        }
-
         this.testSMSSwingWorker = getTestSMSSwingWorker();
         this.updateGUIState();
         this.jButton2.requestFocus();
@@ -491,13 +504,19 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
         jButton1.doClick();
     }//GEN-LAST:event_jTextField1ActionPerformed
 
-    private void jTextField3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField3ActionPerformed
-        jButton2.doClick();
-    }//GEN-LAST:event_jTextField3ActionPerformed
+    private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
+        signOut();
+    }//GEN-LAST:event_jButton4ActionPerformed
 
-    private void jPasswordField2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jPasswordField2ActionPerformed
-        jButton2.doClick();
-    }//GEN-LAST:event_jPasswordField2ActionPerformed
+    private void jCheckBox3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jCheckBox3ActionPerformed
+        updateGUIState();
+        
+        if (jCheckBox3.isSelected()) {
+            if (this.credentialEx == null) {
+                signIn();
+            }
+        }
+    }//GEN-LAST:event_jCheckBox3ActionPerformed
 
     public void cancel() {
         if (this.testSMSSwingWorker != null) {
@@ -517,13 +536,11 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
     public void set(JStockOptions jStockOptions) {
         jCheckBox1.setSelected(jStockOptions.isPopupMessage());
         jCheckBox2.setSelected(jStockOptions.isSendEmail());
-        jCheckBox3.setSelected(jStockOptions.isSMSEnabled());
+        //jCheckBox3.setSelected(jStockOptions.isSMSEnabled());
         jCheckBox4.setSelected(jStockOptions.isSoundEnabled());
         jTextField2.setText(Utils.decrypt(jStockOptions.getEmail()));
         jTextField1.setText(Utils.decrypt(jStockOptions.getCCEmail()));
         jPasswordField1.setText(Utils.decrypt(jStockOptions.getEmailPassword()));
-        jTextField3.setText(Utils.decrypt(jStockOptions.getGoogleCalendarUsername()));
-        jPasswordField2.setText(Utils.decrypt(jStockOptions.getGoogleCalendarPassword()));
 
         if (jStockOptions.getMaxSMSPerDay() <= 0) {
             jComboBox1.setSelectedItem(GUIBundle.getString("OptionsAlertJPanel_Unlimited"));
@@ -554,19 +571,6 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
         }
 
         if (jCheckBox3.isSelected()) {
-            if (jTextField3.getText().trim().length() == 0)
-            {
-                JOptionPane.showMessageDialog(this, "SMS username cannot be empty", "Empty SMS username", JOptionPane.WARNING_MESSAGE);
-                jTextField3.requestFocus();
-                return false;
-            }
-
-            if (jPasswordField2.getPassword().length == 0)
-            {
-                JOptionPane.showMessageDialog(this, "SMS password cannot be empty", "Empty SMS password", JOptionPane.WARNING_MESSAGE);
-                jPasswordField2.requestFocus();
-                return false;
-            }
         }
 
         jStockOptions.setSoundEnabled(jCheckBox4.isSelected());
@@ -576,8 +580,6 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
         jStockOptions.setCCEmail(Utils.encrypt(jTextField1.getText().trim()));
         jStockOptions.setEmailPassword(Utils.encrypt(new String(jPasswordField1.getPassword())));
         jStockOptions.setSMSEnabled(jCheckBox3.isSelected());
-        jStockOptions.setGoogleCalendarUsername(Utils.encrypt(jTextField3.getText().trim()));
-        jStockOptions.setGoogleCalendarPassword(Utils.encrypt(new String(jPasswordField2.getPassword())));
 
         int maxSMSPerDay = -1;
         try {
@@ -618,20 +620,28 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
         jCheckBox2.setEnabled(isTestEmailDone);
         jLabel7.setVisible(!isTestEmailDone);
 
-        jLabel4.setEnabled(smsState);
-        jLabel5.setEnabled(smsState);
-        jButton2.setEnabled(smsState && isTestSMSDone);
-        jTextField3.setEnabled(smsState && isTestSMSDone);
-        jPasswordField2.setEnabled(smsState && isTestSMSDone);
+        jButton2.setEnabled(smsState && isTestSMSDone && this.credentialEx != null);
         jCheckBox3.setEnabled(isTestSMSDone);
-        jLabel6.setEnabled(smsState);
-        jEditorPane3.setEnabled(smsState);
+        
         jLabel8.setVisible(!isTestSMSDone);
-        jLabel9.setEnabled(smsState);
-        jLabel10.setEnabled(smsState);
-        jComboBox1.setEnabled(smsState);
+        jLabel9.setEnabled(smsState && this.credentialEx != null);
+        jLabel10.setEnabled(smsState && this.credentialEx != null);
+        jComboBox1.setEnabled(smsState && this.credentialEx != null);
+        jButton4.setEnabled(smsState && isTestSMSDone && this.credentialEx != null);
+        jPanel7.setEnabled(smsState && this.credentialEx != null);
+        jEditorPane3.setEnabled(smsState && this.credentialEx != null);
+        
+        if (this.credentialEx == null) {
+            jLabel13.setText("?");
+        } else {
+            jLabel13.setText(credentialEx.second);
+        }        
     }
 
+    private Font getRobotoLightFont() {
+        return Utils.getRobotoLightFont().deriveFont((float)16);
+    }
+    
     /**
      * Get Swing worker thread which performs email testing task.
      * @return Swing wroker thread which performs email testing task
@@ -716,13 +726,7 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
         SwingWorker worker = new SwingWorker<Boolean, Void>() {
             @Override
             public Boolean doInBackground() {
-                String username = jTextField3.getText().trim();
-                username = Utils.toEmailIfPossible(username);
-                if (username == null) {
-                    return false;
-                }                
-                final String password = new String(jPasswordField2.getPassword());
-                final boolean status = GoogleCalendar.SMS(username, password, MessagesBundle.getString("info_message_congratulation_sms_alert_system_is_working"));
+                final boolean status = GoogleCalendar.SMS(MessagesBundle.getString("info_message_congratulation_sms_alert_system_is_working"));
                 return status;
             }
 
@@ -774,6 +778,8 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
         return worker;
     }
 
+    private Pair<Credential, String> credentialEx;
+    
     private volatile SwingWorker testSMSSwingWorker = null;
     private volatile SwingWorker testEmailSwingWorker = null;
 
@@ -784,6 +790,7 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
     private javax.swing.JButton jButton3;
+    private javax.swing.JButton jButton4;
     private javax.swing.JCheckBox jCheckBox1;
     private javax.swing.JCheckBox jCheckBox2;
     private javax.swing.JCheckBox jCheckBox3;
@@ -794,23 +801,22 @@ public class OptionsAlertJPanel extends javax.swing.JPanel implements JStockOpti
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
     private javax.swing.JLabel jLabel12;
+    private javax.swing.JLabel jLabel13;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
-    private javax.swing.JLabel jLabel4;
-    private javax.swing.JLabel jLabel5;
-    private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;
     private javax.swing.JLabel jLabel8;
     private javax.swing.JLabel jLabel9;
     private javax.swing.JPanel jPanel1;
+    private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
+    private javax.swing.JPanel jPanel6;
+    private javax.swing.JPanel jPanel7;
     private javax.swing.JPasswordField jPasswordField1;
-    private javax.swing.JPasswordField jPasswordField2;
     private javax.swing.JTextField jTextField1;
     private javax.swing.JTextField jTextField2;
-    private javax.swing.JTextField jTextField3;
     private org.jdesktop.swingx.JXHeader jXHeader1;
     // End of variables declaration//GEN-END:variables
     

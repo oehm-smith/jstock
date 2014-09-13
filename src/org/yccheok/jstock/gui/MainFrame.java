@@ -19,22 +19,14 @@
 
 package org.yccheok.jstock.gui;
 
-import org.yccheok.jstock.gui.charting.ChartJDialog;
-import org.yccheok.jstock.gui.charting.ChartJDialogOptions;
-import org.yccheok.jstock.alert.GoogleMail;
-import org.yccheok.jstock.alert.GoogleCalendar;
-import javax.swing.table.*;
+import com.google.api.client.auth.oauth2.Credential;
 import java.awt.*;
 import java.awt.event.*;
-import java.io.*;
-import java.util.*;
-import org.yccheok.jstock.engine.*;
 import java.awt.image.BufferedImage;
+import java.io.*;
 import java.io.IOException;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import javax.swing.*;
 import java.text.MessageFormat;
+import java.util.*;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -42,12 +34,20 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import javafx.application.Platform;
 import javax.imageio.ImageIO;
 import javax.mail.MessagingException;
 import javax.mail.internet.AddressException;
+import javax.swing.*;
+import javax.swing.table.*;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.yccheok.jstock.alert.GoogleCalendar;
+import org.yccheok.jstock.alert.GoogleMail;
 import org.yccheok.jstock.alert.SMSLimiter;
 import org.yccheok.jstock.analysis.Indicator;
 import org.yccheok.jstock.analysis.OperatorIndicator;
+import org.yccheok.jstock.engine.*;
 import org.yccheok.jstock.engine.ResultType;
 import org.yccheok.jstock.engine.Stock.Board;
 import org.yccheok.jstock.engine.Stock.Industry;
@@ -55,6 +55,8 @@ import org.yccheok.jstock.file.Atom;
 import org.yccheok.jstock.file.GUIBundleWrapper;
 import org.yccheok.jstock.file.Statement;
 import org.yccheok.jstock.file.Statements;
+import org.yccheok.jstock.gui.charting.ChartJDialog;
+import org.yccheok.jstock.gui.charting.ChartJDialogOptions;
 import org.yccheok.jstock.gui.charting.DynamicChart;
 import org.yccheok.jstock.gui.portfolio.PortfolioJDialog;
 import org.yccheok.jstock.gui.table.NonNegativeDoubleEditor;
@@ -141,9 +143,8 @@ public class MainFrame extends javax.swing.JFrame {
         this.initStockInfoDatabaseMeta();
         this.initDatabase(true);
         this.initAjaxProvider();
-        this.initMarketThread();
+        this.initRealTimeIndexMonitor();
         this.initLatestNewsTask();
-        this.initKLSEInfoStockServerFactoryThread();
         this.initCurrencyExchangeMonitor();
         this.initRealTimeStockMonitor();
         this.initWatchlist();
@@ -280,6 +281,7 @@ public class MainFrame extends javax.swing.JFrame {
     // http://sourceforge.net/tracker/?func=detail&aid=3490453&group_id=202896&atid=983418
     private void installShutdownHook() {
         if (Utils.isMacOSX()) {
+            // Triggered by command + Q
             Runnable runner = new Runnable() {
                 @Override
                 public void run() {
@@ -288,7 +290,16 @@ public class MainFrame extends javax.swing.JFrame {
                         return;
                     }
                     
-                    formWindowClosed(null);
+                    // 1) Do not call formWindowClosed directly, as accessing UI
+                    // will cause "hang".
+                    // 2) Calling system.exit will cause "hang" too.
+                    MainFrame.this.save();
+
+                    if (MainFrame.this.needToSaveUserDefinedDatabase) {
+                        // We are having updated user database in memory.
+                        // Save it to disk.
+                        MainFrame.this.saveUserDefinedDatabaseAsCSV(jStockOptions.getCountry(), stockInfoDatabase);
+                    }
                     
                     AppLock.unlock();
                 }
@@ -810,7 +821,7 @@ public class MainFrame extends javax.swing.JFrame {
                 final Double fallBelowDouble = statement.getValueAsDouble(guiBundleWrapper.getString("MainFrame_FallBelow"));
                 final Double riseAboveDouble = statement.getValueAsDouble(guiBundleWrapper.getString("MainFrame_RiseAbove"));
                 if (codeStr.length() > 0 && symbolStr.length() > 0) {
-                    final Stock stock = Utils.getEmptyStock(Code.newInstance(codeStr), Symbol.newInstance(symbolStr));
+                    final Stock stock = org.yccheok.jstock.engine.Utils.getEmptyStock(Code.newInstance(codeStr), Symbol.newInstance(symbolStr));
                     final StockAlert stockAlert = new StockAlert().setFallBelow(fallBelowDouble).setRiseAbove(riseAboveDouble);
                     this.addStockToTable(stock, stockAlert);
                     realTimeStockMonitor.addStockCode(Code.newInstance(codeStr));
@@ -827,7 +838,7 @@ public class MainFrame extends javax.swing.JFrame {
                 final String codeStr = statement.getValueAsString(guiBundleWrapper.getString("MainFrame_Code"));
                 final String symbolStr = statement.getValueAsString(guiBundleWrapper.getString("MainFrame_Symbol"));
                 if (codeStr.length() > 0 && symbolStr.length() > 0) {
-                    final Stock stock = Utils.getEmptyStock(Code.newInstance(codeStr), Symbol.newInstance(symbolStr));
+                    final Stock stock = org.yccheok.jstock.engine.Utils.getEmptyStock(Code.newInstance(codeStr), Symbol.newInstance(symbolStr));
                     this.addStockToTable(stock);
                     realTimeStockMonitor.addStockCode(Code.newInstance(codeStr));
                 }
@@ -1011,6 +1022,8 @@ public class MainFrame extends javax.swing.JFrame {
      * to give user perspective that our system is slow. But, is it safe
      * to do so?
      */
+    
+    // Remember to revise installShutdownHook
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         isFormWindowClosedCalled = true;
         
@@ -1061,6 +1074,8 @@ public class MainFrame extends javax.swing.JFrame {
             log.error("Unexpected error while trying to quit application", exp);
         }
 
+        Platform.exit();
+        
         // All the above operations are done within try block, to ensure
         // System.exit(0) will always be called.
         //
@@ -1287,13 +1302,92 @@ public class MainFrame extends javax.swing.JFrame {
     }//GEN-LAST:event_jMenu8MenuSelected
 
     private void jMenuItem11ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItem11ActionPerformed
-        final LoadFromCloudJDialog dialog = new LoadFromCloudJDialog(this, true);
-        dialog.setVisible(true);
+        loadFromCloud();
     }//GEN-LAST:event_jMenuItem11ActionPerformed
 
+    public void saveToCloud() {
+        jMenu3.setEnabled(false);
+        
+        SwingWorker swingWorker = new SwingWorker<Pair<Pair<Credential, String>, Boolean>, Void>() {
+
+            @Override
+            protected Pair<Pair<Credential, String>, Boolean> doInBackground() throws Exception {
+                final Pair<Pair<Credential, String>, Boolean> pair = org.yccheok.jstock.google.Utils.authorizeDrive();
+                return pair;
+            }
+            
+            @Override
+            public void done() { 
+                jMenu3.setEnabled(true);
+                
+                Pair<Pair<Credential, String>, Boolean> pair = null;
+                
+                try {
+                    pair = this.get();
+                } catch (InterruptedException ex) {
+                    JOptionPane.showMessageDialog(MainFrame.this, ex.getMessage(), GUIBundle.getString("SaveToCloudJDialog_Title"), JOptionPane.ERROR_MESSAGE);
+                    log.error(null, ex);
+                } catch (ExecutionException ex) {
+                    JOptionPane.showMessageDialog(MainFrame.this, ex.getMessage(), GUIBundle.getString("SaveToCloudJDialog_Title"), JOptionPane.ERROR_MESSAGE);
+                    log.error(null, ex);
+                }
+                
+                if (pair == null) {
+                    return;
+                }
+                
+                SaveToCloudJDialog saveToCloudJDialog = new SaveToCloudJDialog(MainFrame.this, true, pair.first, pair.second);
+                saveToCloudJDialog.setVisible(true);
+            }
+        };
+        
+        swingWorker.execute();
+    }
+    
+    public void loadFromCloud() {
+        jMenu3.setEnabled(false);
+        
+        SwingWorker swingWorker = new SwingWorker<Pair<Pair<Credential, String>, Boolean>, Void>() {
+
+            @Override
+            protected Pair<Pair<Credential, String>, Boolean> doInBackground() throws Exception {
+                final Pair<Pair<Credential, String>, Boolean> pair = org.yccheok.jstock.google.Utils.authorizeDrive();
+                if (pair == null) {
+                    return null;
+                }
+                return pair;
+            }
+            
+            @Override
+            public void done() { 
+                jMenu3.setEnabled(true);
+                
+                Pair<Pair<Credential, String>, Boolean> pair = null;
+                
+                try {
+                    pair = this.get();
+                } catch (InterruptedException ex) {
+                    JOptionPane.showMessageDialog(MainFrame.this, ex.getMessage(), GUIBundle.getString("LoadFromCloudJDialog_Title"), JOptionPane.ERROR_MESSAGE);
+                    log.error(null, ex);
+                } catch (ExecutionException ex) {
+                    JOptionPane.showMessageDialog(MainFrame.this, ex.getMessage(), GUIBundle.getString("LoadFromCloudJDialog_Title"), JOptionPane.ERROR_MESSAGE);
+                    log.error(null, ex);
+                }
+                
+                if (pair == null) {
+                    return;
+                }
+                
+                LoadFromCloudJDialog loadFromCloudJDialog = new LoadFromCloudJDialog(MainFrame.this, true, pair.first, pair.second);
+                loadFromCloudJDialog.setVisible(true);
+            }
+        };
+        
+        swingWorker.execute();        
+    }
+    
     private void jMenuItem10ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItem10ActionPerformed
-        final SaveToCloudJDialog dialog = new SaveToCloudJDialog(this, true);
-        dialog.setVisible(true);
+        saveToCloud();
     }//GEN-LAST:event_jMenuItem10ActionPerformed
 
     private void jMenuItem3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItem3ActionPerformed
@@ -1505,9 +1599,8 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void jMenuItem15ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItem15ActionPerformed
         refreshAllRealTimeStockMonitors();
+        refreshRealTimeIndexMonitor();
         refreshCurrencyExchangeMonitor();
-        // Refresh stock index as well.
-        this.initMarketThread();
         
         // Only update UI when there is at least one stock.
         if (this.getStocks().isEmpty() == false) {
@@ -1689,6 +1782,10 @@ public class MainFrame extends javax.swing.JFrame {
             }
         }        
 
+        // Avoid "JavaFX IllegalStateException when disposing JFXPanel in Swing"
+        // http://stackoverflow.com/questions/16867120/javafx-illegalstateexception-when-disposing-jfxpanel-in-swing
+        Platform.setImplicitExit(false);
+        
         // As ProxyDetector is affected by system properties
         // http.proxyHost, we are forced to initialized ProxyDetector right here,
         // before we manually change the system properties according to
@@ -2037,21 +2134,13 @@ public class MainFrame extends javax.swing.JFrame {
 
     private Image getMyIconImage()
     {
-        if (Utils.isWindows7() || Utils.isWindows8()) {
-            return new javax.swing.ImageIcon(getClass().getResource("/images/128x128/chart.png")).getImage();
-        }
-        return new javax.swing.ImageIcon(getClass().getResource("/images/16x16/chart.png")).getImage();
+        return new javax.swing.ImageIcon(getClass().getResource("/images/128x128/chart.png")).getImage();
     }
     
     private void createSystemTrayIcon() {
         if (SystemTray.isSupported()) {
             SystemTray tray = SystemTray.getSystemTray();
-            final Image image;
-            if (Utils.isWindows7() || Utils.isWindows8()) {
-                image = new javax.swing.ImageIcon(getClass().getResource("/images/128x128/chart.png")).getImage();
-            } else {
-                image = new javax.swing.ImageIcon(getClass().getResource("/images/16x16/chart.png")).getImage();
-            }
+            final Image image = new javax.swing.ImageIcon(getClass().getResource("/images/128x128/chart.png")).getImage();
 
             MouseListener mouseListener = new MouseListener() {
 
@@ -2325,6 +2414,14 @@ public class MainFrame extends javax.swing.JFrame {
      * requirement.
      */
     public void reloadAfterDownloadFromCloud() {
+        
+        ////////////////////////////////////////////////////////////////////////
+        // JStockOptions is already restored at this point.
+        // Please refer to LoadFromCloudJDialog.
+        ////////////////////////////////////////////////////////////////////////
+        
+        Utils.updateFactoriesPriceSource();
+        
         /* These codes are very similar to clean up code during changing country.
          */
         MainFrame.this.statusBar.setCountryIcon(jStockOptions.getCountry().getIcon(), jStockOptions.getCountry().toString());
@@ -2344,7 +2441,7 @@ public class MainFrame extends javax.swing.JFrame {
         // freshly.
         this.initDatabase(true);
         this.initAjaxProvider();
-        this.initMarketThread();
+        this.initRealTimeIndexMonitor();
         this.initMarketJPanel();
         this.initStockHistoryMonitor();
         this.initOthersStockHistoryMonitor();
@@ -2390,10 +2487,12 @@ public class MainFrame extends javax.swing.JFrame {
             return;
         }
 
+        final Country oldCountry = jStockOptions.getCountry();
+        
         if (needToSaveUserDefinedDatabase) {
             // We are having updated user database in memory.
             // Save it to disk.
-            this.saveUserDefinedDatabaseAsCSV(country, stockInfoDatabase);
+            this.saveUserDefinedDatabaseAsCSV(oldCountry, stockInfoDatabase);
         }
 
         /* Save the GUI look. */
@@ -2428,7 +2527,7 @@ public class MainFrame extends javax.swing.JFrame {
 
         this.initDatabase(true);
         this.initAjaxProvider();
-        this.initMarketThread();
+        this.initRealTimeIndexMonitor();
         this.initMarketJPanel();
         this.initStockHistoryMonitor();
         this.initOthersStockHistoryMonitor();
@@ -2568,10 +2667,6 @@ public class MainFrame extends javax.swing.JFrame {
 
     public StockNameDatabase getStockNameDatabase() {
         return stockNameDatabase;
-    }
-    
-    public java.util.List<StockServerFactory> getStockServerFactories() {
-        return Factories.INSTANCE.getStockServerFactories(this.jStockOptions.getCountry());
     }
     
     public java.util.List<Stock> getStocks() {
@@ -2795,9 +2890,8 @@ public class MainFrame extends javax.swing.JFrame {
                         message = MessageFormat.format(template, stock.symbol, lastPrice, price);
                     }
 
-                    final String username = Utils.decrypt(jStockOptions.getGoogleCalendarUsername());
                     if (SMSLimiter.INSTANCE.isSMSAllowed()) {
-                        final boolean status = GoogleCalendar.SMS(username, Utils.decrypt(jStockOptions.getGoogleCalendarPassword()), message);
+                        final boolean status = GoogleCalendar.SMS(message);
                         if (status) {
                             SMSLimiter.INSTANCE.inc();
                         }
@@ -2904,7 +2998,7 @@ public class MainFrame extends javax.swing.JFrame {
         // selected and the table shall be scrolled to be visible.
         final StockTableModel tableModel = (StockTableModel)MainFrame.this.jTable1.getModel();
 
-        final Stock emptyStock = Utils.getEmptyStock(stockInfo);
+        final Stock emptyStock = org.yccheok.jstock.engine.Utils.getEmptyStock(stockInfo);
         
         // First add the empty stock, so that the user will not have wrong perspective that
         // our system is slow.
@@ -2938,6 +3032,16 @@ public class MainFrame extends javax.swing.JFrame {
         };
     }
 
+    private org.yccheok.jstock.engine.Observer<RealTimeIndexMonitor, java.util.List<Market>> getRealTimeIndexMonitorObserver() {
+        return new org.yccheok.jstock.engine.Observer<RealTimeIndexMonitor, java.util.List<Market>>() {
+            @Override
+            public void update(RealTimeIndexMonitor monitor, java.util.List<Market> markets)
+            {
+                MainFrame.this.update(markets);
+            }
+        };        
+    }
+    
     private org.yccheok.jstock.engine.Observer<StockHistoryMonitor, StockHistoryMonitor.StockHistoryRunnable> getStockHistoryMonitorObserver() {
         return new org.yccheok.jstock.engine.Observer<StockHistoryMonitor, StockHistoryMonitor.StockHistoryRunnable>() {
             @Override
@@ -3032,80 +3136,6 @@ public class MainFrame extends javax.swing.JFrame {
         popup.add(menuItem);
         
         return popup;
-    }
-    
-    private class MarketRunnable implements Runnable {
-        // 2 seconds.
-        private static final long MIN_DELAY = 2000;
-        private static final long MIN_DELAY_COUNTER = 3;
-        private int minDelayCounter = 0;
-        
-        public MarketRunnable() {
-        }
-        
-        @Override
-        public void run() {
-            final Thread currentThread = Thread.currentThread();
-
-            final java.util.List<StockServerFactory> stockServerFactories = getStockServerFactories();
-            final java.util.List<Index> is = org.yccheok.jstock.engine.Utils.getStockIndices(jStockOptions.getCountry());
-            final int is_size = is.size();
-            
-            // Do not rely on isInterrupted flag only. The flag can be cleared by 3rd party easily.
-            // Check for current thread as well.
-            while (!currentThread.isInterrupted()  && (marketThread == currentThread)) {
-                
-                int fail = is_size;
-                
-                for (StockServerFactory factory : stockServerFactories) {
-                    MarketServer marketServer = factory.getMarketServer();
-                    
-                    if (marketServer == null) {
-                        continue;
-                    }
-                    
-                    java.util.List<Market> markets = marketServer.getMarkets(is);
-                    
-                                        
-                    if (marketThread != currentThread) {
-                        break;
-                    }
-
-                    final int market_size = markets.size();
-
-                    // Very strict rule.
-                    if (market_size != is_size) {
-                        continue;
-                    }
-
-                    fail -= market_size;
-
-                    // Notify all the interested parties.
-                    update(markets);
-
-                    break;
-                }
-                
-                try {
-                    if (fail == 0) {
-                        Thread.sleep(jStockOptions.getScanningSpeed());
-                    } else {
-                        if (minDelayCounter < MIN_DELAY_COUNTER) {
-                            // Sleep as little as possible, to get the 1st reading
-                            // as soon as possible. MIN_DELAY_COUNTER is used to avoid
-                            // from getting our CPU and network too busy.
-                            minDelayCounter++;
-                            Thread.sleep(MIN_DELAY);
-                        } else {
-                            Thread.sleep(jStockOptions.getScanningSpeed());
-                        }
-                    }
-                } catch (java.lang.InterruptedException exp) {
-                    log.error(null, exp);
-                    break;
-                }
-            }   // while
-        }            
     }
 
     private static boolean saveStockNameDatabaseAsCSV(Country country, StockNameDatabase stockNameDatabase) {
@@ -3349,59 +3379,77 @@ public class MainFrame extends javax.swing.JFrame {
             //
             // For networking stuff, we will try on JStock static server.
 
-            final String location = org.yccheok.jstock.engine.Utils.getStocksCSVFileLocation(country);
+            final String location = org.yccheok.jstock.engine.Utils.getStocksCSVZipFileLocation(country);
             // Try to download the CSV file.
-            final File file = Utils.downloadAsTempFile(location);
+            final File zipFile = Utils.downloadAsTempFile(location);
             // Is download success?
-            if (file == null) {
+            if (zipFile == null) {
                 return false;
             }
-            // Try to parse the CSV file.
-            final java.util.List<Stock> stocks = org.yccheok.jstock.engine.Utils.getStocksFromCSVFile(file);
-            // Is the stocks good enough?
-            if (false == stocks.isEmpty()) {
-                final Pair<StockInfoDatabase, StockNameDatabase> stockDatabase = org.yccheok.jstock.engine.Utils.toStockDatabase(stocks, country);
+            
+            File tempZipDirectory = null;
+                    
+            try {
+                tempZipDirectory = java.nio.file.Files.createTempDirectory(null).toFile();
 
-                // After time consuming operation, check whether we should
-                // cancel.
-                if (this.isCancelled()) {
+                if (false == Utils.extractZipFile(zipFile, tempZipDirectory.getAbsolutePath(), true)) {
                     return false;
                 }
 
-                // Save to disk.
-                MainFrame.saveStockInfoDatabaseAsCSV(country, stockDatabase.first);
-                if (stockDatabase.second != null) {
-                    MainFrame.saveStockNameDatabaseAsCSV(country, stockDatabase.second);
-                }
-                
-                // Yes. We need to integrate "user-defined-database.csv" into tmp_stock_info_database
-                final java.util.List<Pair<Code, Symbol>> pairs = loadUserDefinedDatabaseFromCSV(country);
-                
-                if (pairs.isEmpty() == false) {
-                    // Insert with new user defined code.
-                    for (Pair<Code, Symbol> pair : pairs) {
-                        stockDatabase.first.addUserDefinedStockInfo(StockInfo.newInstance(pair.first, pair.second));
-                    }
-                }
+                File file = new File(tempZipDirectory, "stocks.csv");
 
-                // Prepare proper synchronization for us to change country.
-                synchronized (MainFrame.this.databaseTaskMonitor)
-                {
+                // Try to parse the CSV file.
+                final java.util.List<Stock> stocks = org.yccheok.jstock.engine.Utils.getStocksFromCSVFile(file);
+                // Is the stocks good enough?
+                if (false == stocks.isEmpty()) {
+                    final Pair<StockInfoDatabase, StockNameDatabase> stockDatabase = org.yccheok.jstock.engine.Utils.toStockDatabase(stocks, country);
+
+                    // After time consuming operation, check whether we should
+                    // cancel.
                     if (this.isCancelled()) {
                         return false;
                     }
 
-                    MainFrame.this.stockInfoDatabase = stockDatabase.first;
-                    MainFrame.this.stockNameDatabase = stockDatabase.second;
+                    // Save to disk.
+                    MainFrame.saveStockInfoDatabaseAsCSV(country, stockDatabase.first);
+                    if (stockDatabase.second != null) {
+                        MainFrame.saveStockNameDatabaseAsCSV(country, stockDatabase.second);
+                    }
 
-                    // Register the auto complete JComboBox with latest database.
-                    ((AutoCompleteJComboBox)MainFrame.this.jComboBox1).setStockInfoDatabase(MainFrame.this.stockInfoDatabase);
-                    MainFrame.this.indicatorPanel.setStockInfoDatabase(MainFrame.this.stockInfoDatabase);
+                    // Yes. We need to integrate "user-defined-database.csv" into tmp_stock_info_database
+                    final java.util.List<Pair<Code, Symbol>> pairs = loadUserDefinedDatabaseFromCSV(country);
 
-                    return true;
+                    if (pairs.isEmpty() == false) {
+                        // Insert with new user defined code.
+                        for (Pair<Code, Symbol> pair : pairs) {
+                            stockDatabase.first.addUserDefinedStockInfo(StockInfo.newInstance(pair.first, pair.second));
+                        }
+                    }
+
+                    // Prepare proper synchronization for us to change country.
+                    synchronized (MainFrame.this.databaseTaskMonitor)
+                    {
+                        if (this.isCancelled()) {
+                            return false;
+                        }
+
+                        MainFrame.this.stockInfoDatabase = stockDatabase.first;
+                        MainFrame.this.stockNameDatabase = stockDatabase.second;
+
+                        // Register the auto complete JComboBox with latest database.
+                        ((AutoCompleteJComboBox)MainFrame.this.jComboBox1).setStockInfoDatabase(MainFrame.this.stockInfoDatabase);
+                        MainFrame.this.indicatorPanel.setStockInfoDatabase(MainFrame.this.stockInfoDatabase);
+
+                        return true;
+                    }
+                }
+            } catch (IOException ex) {
+                log.error(null, ex);
+            } finally {
+                if (tempZipDirectory != null) {
+                    Utils.deleteDir(tempZipDirectory, true);
                 }
             }
-            
             return false;
         }
     }
@@ -3425,10 +3473,38 @@ public class MainFrame extends javax.swing.JFrame {
      * Initializes currency exchange monitor.
      */
     public void initCurrencyExchangeMonitor() {
-        final java.util.List<StockServerFactory> stockServerFactories = getStockServerFactories();
-        this.portfolioManagementJPanel.initCurrencyExchangeMonitor(stockServerFactories);
+        this.portfolioManagementJPanel.initCurrencyExchangeMonitor();
     }
 
+    private void initRealTimeIndexMonitor() {
+        final RealTimeIndexMonitor oldRealTimeIndexMonitor = realTimeIndexMonitor;
+        if (oldRealTimeIndexMonitor != null) {            
+            zombiePool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    log.info("Prepare to shut down " + oldRealTimeIndexMonitor + "...");
+                    oldRealTimeIndexMonitor.clearIndices();
+                    oldRealTimeIndexMonitor.dettachAll();
+                    oldRealTimeIndexMonitor.stop();
+                    log.info("Shut down " + oldRealTimeIndexMonitor + " peacefully.");
+                }
+            });
+        }
+
+        realTimeIndexMonitor = new RealTimeIndexMonitor(
+                Constants.REAL_TIME_INDEX_MONITOR_MAX_THREAD, 
+                Constants.REAL_TIME_INDEX_MONITOR_MAX_STOCK_SIZE_PER_SCAN,
+                jStockOptions.getScanningSpeed());
+        
+        realTimeIndexMonitor.attach(this.realTimeIndexMonitorObserver);
+        
+        for (Index index : org.yccheok.jstock.engine.Utils.getStockIndices(jStockOptions.getCountry())) {
+            realTimeIndexMonitor.addIndex(index);
+        }
+        
+        realTimeIndexMonitor.startNewThreadsIfNecessary();
+    }
+    
     private void initRealTimeStockMonitor() {
         final RealTimeStockMonitor oldRealTimeStockMonitor = realTimeStockMonitor;
         if (oldRealTimeStockMonitor != null) {            
@@ -3444,15 +3520,15 @@ public class MainFrame extends javax.swing.JFrame {
             });
         }
 
-        realTimeStockMonitor = new RealTimeStockMonitor(4, 20, jStockOptions.getScanningSpeed());
-        
-        final java.util.List<StockServerFactory> stockServerFactories = getStockServerFactories();
-        realTimeStockMonitor.setStockServerFactories(stockServerFactories);
+        realTimeStockMonitor = new RealTimeStockMonitor(
+                Constants.REAL_TIME_STOCK_MONITOR_MAX_THREAD, 
+                Constants.REAL_TIME_STOCK_MONITOR_MAX_STOCK_SIZE_PER_SCAN,
+                jStockOptions.getScanningSpeed());
 
         realTimeStockMonitor.attach(this.realTimeStockMonitorObserver);
 
-        this.indicatorScannerJPanel.initRealTimeStockMonitor(stockServerFactories);
-        this.portfolioManagementJPanel.initRealTimeStockMonitor(stockServerFactories);
+        this.indicatorScannerJPanel.initRealTimeStockMonitor();
+        this.portfolioManagementJPanel.initRealTimeStockMonitor();
     }
 
     // Only call after initJStockOptions.
@@ -3544,7 +3620,7 @@ public class MainFrame extends javax.swing.JFrame {
     /**
      * Initialize JStock options.
      */
-    private void initJStockOptions(JStockOptions jStockOptions) {
+    public void initJStockOptions(JStockOptions jStockOptions) {
         this.jStockOptions = jStockOptions;
 
         /* Hard core fix. */
@@ -3563,33 +3639,38 @@ public class MainFrame extends javax.swing.JFrame {
             System.getProperties().remove("http.proxyHost");
             System.getProperties().remove("http.proxyPort");
         }
-
-        for (Country country : Country.values()) {
-            final Class c = this.jStockOptions.getPrimaryStockServerFactoryClass(country);
-            if (c == null) {
-                continue;
-            }
-            Factories.INSTANCE.updatePrimaryStockServerFactory(country, c);
-        }
+        
+        Utils.updateFactoriesPriceSource();        
     }   
 
-    public void updatePrimaryStockServerFactory(Country country, Class<? extends StockServerFactory> c) {
-        // Same. Nothing to be updated.
-        if (c == jStockOptions.getPrimaryStockServerFactoryClass(country)) {
-            return;
-        }
+    public void updatePriceSource(Country country, PriceSource priceSource) {
+        Factories.INSTANCE.updatePriceSource(country, priceSource);
+        
+        rebuildRealTimeStockMonitor();
+        rebuildRealTimeIndexMonitor();
 
-        jStockOptions.addPrimaryStockServerFactoryClass(country, c);
-        Factories.INSTANCE.updatePrimaryStockServerFactory(country, c);
-
-        realTimeStockMonitor.setStockServerFactories(this.getStockServerFactories());
-        stockHistoryMonitor.setStockServerFactories(this.getStockServerFactories());
-
-        this.indicatorScannerJPanel.updatePrimaryStockServerFactory(Collections.unmodifiableList(this.getStockServerFactories()));
-        this.portfolioManagementJPanel.updatePrimaryStockServerFactory(Collections.unmodifiableList(this.getStockServerFactories()));
-        this.indicatorPanel.updatePrimaryStockServerFactory(Collections.unmodifiableList(this.getStockServerFactories()));
+        this.indicatorScannerJPanel.rebuildRealTimeStockMonitor();
+        this.portfolioManagementJPanel.rebuildRealTimeStockMonitor();
+        
+        this.refreshAllRealTimeStockMonitors();
+        this.refreshRealTimeIndexMonitor();
+        this.refreshCurrencyExchangeMonitor();
     }
 
+    private void rebuildRealTimeStockMonitor() {
+        RealTimeStockMonitor _realTimeStockMonitor = this.realTimeStockMonitor;
+        if (_realTimeStockMonitor != null) {
+            _realTimeStockMonitor.rebuild();
+        }
+    }
+    
+    private void rebuildRealTimeIndexMonitor() {
+        RealTimeIndexMonitor _realTimeIndexMonitor = this.realTimeIndexMonitor;
+        if (_realTimeIndexMonitor != null) {
+            _realTimeIndexMonitor.rebuild();
+        }
+    }
+    
     private void initWatchlist() {
         // This is new watchlist. Reset last update date.
         this.timestamp = 0;
@@ -3773,10 +3854,8 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void initOthersStockHistoryMonitor()
     {
-        final java.util.List<StockServerFactory> stockServerFactories = getStockServerFactories();
-
-        this.indicatorPanel.initStockHistoryMonitor(Collections.unmodifiableList(stockServerFactories));
-        this.indicatorScannerJPanel.initStockHistoryMonitor(Collections.unmodifiableList(stockServerFactories));
+        this.indicatorPanel.initStockHistoryMonitor();
+        this.indicatorScannerJPanel.initStockHistoryMonitor();
     }
 
     // Do not combine initOthersStockHistoryMonitor with initStockHistoryMonitor. We need to be able to update
@@ -3799,9 +3878,6 @@ public class MainFrame extends javax.swing.JFrame {
         
         this.stockHistoryMonitor = new StockHistoryMonitor(HISTORY_MONITOR_MAX_THREAD);
         
-        final java.util.List<StockServerFactory> stockServerFactories = getStockServerFactories();
-        stockHistoryMonitor.setStockServerFactories(stockServerFactories);
-        
         stockHistoryMonitor.attach(this.stockHistoryMonitorObserver);
 
         final Country country = jStockOptions.getCountry();
@@ -3815,24 +3891,6 @@ public class MainFrame extends javax.swing.JFrame {
         stockHistoryMonitor.setDuration(Duration.getTodayDurationByYears(jStockOptions.getHistoryDuration()));
     }
 
-    // Determine whether we should make use of KLSEInfoStockServerFactory.
-    private void initKLSEInfoStockServerFactoryThread()
-    {
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                final String remove = org.yccheok.jstock.gui.Utils.getUUIDValue(org.yccheok.jstock.network.Utils.getURL(org.yccheok.jstock.network.Utils.Type.OPTIONS), "remove_klse_info_stock_server_factory");
-                if (remove != null && remove.equals("1"))
-                {
-                    Factories.INSTANCE.removeKLSEInfoStockServerFactory();
-                }
-            }            
-        };
-        
-        this.klseInfoStockServerFactoryThread = new Thread(runnable);
-        this.klseInfoStockServerFactoryThread.start();
-    }
-    
     public void initLatestNewsTask()
     {
         if (jStockOptions.isAutoUpdateNewsEnabled() == true)
@@ -3859,28 +3917,6 @@ public class MainFrame extends javax.swing.JFrame {
                 latestNewsTask = null;
             }
         }
-    }
-    
-    private void initMarketThread() {
-        final Thread oldMarketThread = marketThread;
-        if (oldMarketThread != null) {
-            zombiePool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    log.info("Prepare to shut down market thread " + oldMarketThread + "...");
-                    oldMarketThread.interrupt();
-                    try {
-                        oldMarketThread.join();
-                    } catch (InterruptedException ex) {
-                        log.error(null, ex);
-                    }
-                    log.info("Shut down market thread " + oldMarketThread + " peacefully.");
-                }
-            });            
-        }
-        
-        this.marketThread = new Thread(new MarketRunnable());
-        this.marketThread.start();
     }
     
     private void initAjaxProvider() {
@@ -3929,11 +3965,27 @@ public class MainFrame extends javax.swing.JFrame {
                     Long local = localStockInfoDatabaseMeta.get(country);
                                         
                     if (false == latest.equals(local)) {
-                        final String stocksCSVFileLocation = org.yccheok.jstock.engine.Utils.getStocksCSVFileLocation(country);
-                        final File file = Utils.downloadAsTempFile(stocksCSVFileLocation);
-                        if (file != null) {                            
+                        final String stocksCSVZipFileLocation = org.yccheok.jstock.engine.Utils.getStocksCSVZipFileLocation(country);
+
+                        final File zipFile = Utils.downloadAsTempFile(stocksCSVZipFileLocation);
+                        
+                        if (zipFile == null) {
+                            continue;
+                        }
+                        
+                        File tempZipDirectory = null;
+                        
+                        try {
+                            tempZipDirectory = java.nio.file.Files.createTempDirectory(null).toFile();
+
+                            if (false == Utils.extractZipFile(zipFile, tempZipDirectory.getAbsolutePath(), true)) {
+                                continue;
+                            }
+
+                            File file = new File(tempZipDirectory, "stocks.csv");
+
                             final java.util.List<Stock> stocks = org.yccheok.jstock.engine.Utils.getStocksFromCSVFile(file);
-                            
+
                             if (false == stocks.isEmpty()) {
                                 final Pair<StockInfoDatabase, StockNameDatabase> stockDatabase = org.yccheok.jstock.engine.Utils.toStockDatabase(stocks, country);
                                 MainFrame.saveStockInfoDatabaseAsCSV(country, stockDatabase.first);
@@ -3941,10 +3993,16 @@ public class MainFrame extends javax.swing.JFrame {
                                     MainFrame.saveStockNameDatabaseAsCSV(country, stockDatabase.second);
                                 }
                                 successStockInfoDatabaseMeta.put(country, latest);
-                                
+
                                 if (country == jStockOptions.getCountry()) {
                                     needToInitDatabase = true;
                                 }
+                            }
+                        } catch (IOException ex) {
+                            log.error(null, ex);
+                        } finally {
+                            if (tempZipDirectory != null) {
+                                Utils.deleteDir(tempZipDirectory, true);
                             }
                         }
                     }
@@ -4410,7 +4468,8 @@ public class MainFrame extends javax.swing.JFrame {
     
     public void updateScanningSpeed(int speed) {
         this.realTimeStockMonitor.setDelay(speed);
-        indicatorScannerJPanel.updateScanningSpeed(speed);
+        this.realTimeIndexMonitor.setDelay(speed);
+        this.indicatorScannerJPanel.updateScanningSpeed(speed);
     }
 
     public void updateHistoryDuration(Duration historyDuration) {
@@ -4645,7 +4704,7 @@ public class MainFrame extends javax.swing.JFrame {
             */
         };
     }
-
+    
     private class TableKeyEventListener extends java.awt.event.KeyAdapter {
         @Override
         public void keyTyped(java.awt.event.KeyEvent e) {
@@ -4665,30 +4724,36 @@ public class MainFrame extends javax.swing.JFrame {
         this.indicatorScannerJPanel.refreshRealTimeStockMonitor();
         this.portfolioManagementJPanel.refreshRealTimeStockMonitor();
     }
+
+    public void refreshRealTimeIndexMonitor() {        
+        RealTimeIndexMonitor _realTimeIndexMonitor = this.realTimeIndexMonitor;
+        if (_realTimeIndexMonitor != null) {
+            _realTimeIndexMonitor.refresh();
+        }
+    }
     
     private TrayIcon trayIcon;
     
     private static final Log log = LogFactory.getLog(MainFrame.class);
         
-    private MyJXStatusBar statusBar = new MyJXStatusBar();
+    private final MyJXStatusBar statusBar = new MyJXStatusBar();
     private boolean isStatusBarBusy = false;
     
     // A set of stock history which we need to display GUI on them, when user request explicitly.
-    private java.util.Set<Code> stockCodeHistoryGUI = new java.util.HashSet<Code>();
+    private final java.util.Set<Code> stockCodeHistoryGUI = new java.util.HashSet<Code>();
     
     private volatile StockInfoDatabase stockInfoDatabase = null;
     // StockNameDatabase is an optional item.
     private volatile StockNameDatabase stockNameDatabase = null;
     
     private RealTimeStockMonitor realTimeStockMonitor = null;
+    private RealTimeIndexMonitor realTimeIndexMonitor = null;
     private StockHistoryMonitor stockHistoryMonitor = null;
 
     private DatabaseTask databaseTask = null;
     private final Object databaseTaskMonitor = new Object();
 
     private LatestNewsTask latestNewsTask = null;
-    private volatile Thread marketThread = null;
-    private Thread klseInfoStockServerFactoryThread = null;   
     private JStockOptions jStockOptions;
     private ChartJDialogOptions chartJDialogOptions;
     
@@ -4697,25 +4762,26 @@ public class MainFrame extends javax.swing.JFrame {
     private PortfolioManagementJPanel portfolioManagementJPanel;
 
     private final AlertStateManager alertStateManager = new AlertStateManager();
-    private ExecutorService emailAlertPool = Executors.newFixedThreadPool(1);
-    private ExecutorService smsAlertPool = Executors.newFixedThreadPool(1);
-    private ExecutorService systemTrayAlertPool = Executors.newFixedThreadPool(1);
+    private final ExecutorService emailAlertPool = Executors.newFixedThreadPool(1);
+    private final ExecutorService smsAlertPool = Executors.newFixedThreadPool(1);
+    private final ExecutorService systemTrayAlertPool = Executors.newFixedThreadPool(1);
     private volatile ExecutorService stockInfoDatabaseMetaPool = Executors.newFixedThreadPool(1);
             
     private final org.yccheok.jstock.engine.Observer<RealTimeStockMonitor, java.util.List<Stock>> realTimeStockMonitorObserver = this.getRealTimeStockMonitorObserver();
+    private final org.yccheok.jstock.engine.Observer<RealTimeIndexMonitor, java.util.List<Market>> realTimeIndexMonitorObserver = this.getRealTimeIndexMonitorObserver();
     private final org.yccheok.jstock.engine.Observer<StockHistoryMonitor, StockHistoryMonitor.StockHistoryRunnable> stockHistoryMonitorObserver = this.getStockHistoryMonitorObserver();
     private final org.yccheok.jstock.engine.Observer<Indicator, Boolean> alertStateManagerObserver = this.getAlertStateManagerObserver();
 
     private final javax.swing.ImageIcon smileIcon = this.getImageIcon("/images/16x16/smile.png");
     private final javax.swing.ImageIcon smileGrayIcon = this.getImageIcon("/images/16x16/smile-gray.png");
 
-    private Executor zombiePool = Utils.getZoombiePool();
+    private final Executor zombiePool = Utils.getZoombiePool();
     
     private MarketJPanel marketJPanel;
 
     // Use ConcurrentHashMap, enable us able to read and write using different
     // threads.
-    private java.util.Map<Code, DynamicChart> dynamicCharts = new java.util.concurrent.ConcurrentHashMap<Code, DynamicChart>();
+    private final java.util.Map<Code, DynamicChart> dynamicCharts = new java.util.concurrent.ConcurrentHashMap<Code, DynamicChart>();
     // We have 720 (6 * 60 * 2) points per chart, based on 10 seconds per points, with maximum 2 hours.
     // By having maximum 10 charts, we shall not face any memory problem.
     private static final int MAX_DYNAMIC_CHART_SIZE = 10;

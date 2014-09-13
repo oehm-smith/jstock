@@ -2,6 +2,8 @@ JStock is a free stock market software for 26 countries. It provides Stock watch
 
 JStock long term product roadmap can be found from http://goo.gl/55gGQS and http://goo.gl/ClN7zT
 
+[![Gitter chat](https://badges.gitter.im/yccheok/client-app.png)](https://gitter.im/yccheok/jstock)
+
 1. Development / Running
 
 ## Netbeans
@@ -69,5 +71,3 @@ Now to make a Run Configuration to start JStock:
 1. Click `Apply` and then `Run`
 1. The JStock GUI should launch showing any data that had already been setup
 1. Thereafter you just need to go `Run Toolbar icon > Jstocck exec:java`
-
-

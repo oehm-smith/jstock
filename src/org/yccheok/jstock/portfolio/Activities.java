@@ -21,11 +21,8 @@ package org.yccheok.jstock.portfolio;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.yccheok.jstock.engine.SimpleDate;
-import org.yccheok.jstock.engine.Stock;
 
 /**
  *
@@ -37,18 +34,22 @@ public class Activities {
         this.simpleDate = simpleDate;
     }
 
-    public SimpleDate getDate() {
-        return this.simpleDate;
-    }
-
-    public boolean add(Activity activity) {
-        final boolean status = this.activities.add(activity);
+    public void ensureSorted() {
         java.util.Collections.sort(this.activities, new Comparator<Activity>() {
             @Override
             public int compare(Activity o1, Activity o2) {
                 return o1.getType().compareTo(o2.getType());
             }
         });
+    }
+    
+    public SimpleDate getDate() {
+        return this.simpleDate;
+    }
+
+    public boolean add(Activity activity) {
+        final boolean status = this.activities.add(activity);
+
         return status;
     }
 
@@ -69,48 +70,6 @@ public class Activities {
         }
         java.util.Collections.sort(types);
         return types;
-    }
-
-    public String toSummary() {
-        Map<String, Double> datas = new HashMap<String, Double>();
-
-        for (Activity activity : activities) {
-            final Stock stock = (Stock)activity.get(Activity.Param.Stock);
-            String key = (stock != null ? stock.symbol.toString() : "") + activity.getType();
-            Double d = datas.get(key);
-            if (d != null) {
-                double total = d.doubleValue() + activity.getAmount();
-                datas.put(key, total);
-            }
-            else {
-                datas.put(key, activity.getAmount());
-            }
-        }
-
-        String message = "";
-        int count = 0;
-        final int size = activities.size();
-        for (Activity activity : activities) {
-            count++;
-            final Stock stock = (Stock)activity.get(Activity.Param.Stock);
-            final String who = stock != null ? stock.symbol.toString() : "";
-            final Activity.Type type = activity.getType();
-            String key = who + type;
-            Double d = datas.get(key);
-            /* Must not be null due to first loop. */
-            if (who.length() > 1) {
-                message = message + who + " " + type.toString().toLowerCase() + " " + Utils.toCurrencyWithSymbol(DecimalPlaces.Three, d);
-            }
-            else {
-                message = message + type.toString().toLowerCase() + " " + Utils.toCurrencyWithSymbol(DecimalPlaces.Three, d);
-            }
-
-            if (count < size) {
-                message = message + "<br>";
-            }
-        }
-        message = message + "";
-        return message;
     }
 
     private final List<Activity> activities = new ArrayList<Activity>();

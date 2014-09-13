@@ -30,23 +30,18 @@ import org.apache.commons.logging.LogFactory;
  * @author yccheok
  */
 public class GoogleStockServerFactory implements StockServerFactory {
-
-    private GoogleStockServerFactory(boolean useStockServer) {
-        if (useStockServer) {
-            stockServer = new GoogleStockServer();
-        } else {
-            stockServer = null;
-        }        
+    
+    @Override
+    public char getId() {
+        return 'b';
     }
     
-    /**
-     * Returns GoogleStockServerFactory based on given country.
-     *
-     * @param country the country
-     * @return GoogleStockServerFactory based on given country
-     */
-    public static StockServerFactory newInstance(boolean useStockServer) {
-        return new GoogleStockServerFactory(useStockServer);
+    private GoogleStockServerFactory() {
+        stockServer = new GoogleStockServer();
+    }
+    
+    public static StockServerFactory newInstance() {
+        return new GoogleStockServerFactory();
     }
 
     /**
@@ -98,23 +93,12 @@ public class GoogleStockServerFactory implements StockServerFactory {
         }
     }
 
-    /**
-     * Returns market server for this factory.
-     *
-     * @return market server for this factory
-     */
-    @Override
-    public MarketServer getMarketServer() {
-        return marketServer;
-    }
-
     @Override
     public DividendServer getDividendServer() {
         return null;
     }
     
     private final StockServer stockServer;
-    private final MarketServer marketServer = new GoogleMarketServer();
     
     private static final Log log = LogFactory.getLog(GoogleStockServerFactory.class);
 }

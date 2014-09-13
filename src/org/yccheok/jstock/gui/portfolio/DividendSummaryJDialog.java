@@ -47,11 +47,14 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableModel;
+import javax.swing.table.TableRowSorter;
+import javax.swing.table.TableStringConverter;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.yccheok.jstock.engine.Code;
 import org.yccheok.jstock.engine.DividendServer;
 import org.yccheok.jstock.engine.Duration;
+import org.yccheok.jstock.engine.Factories;
 import org.yccheok.jstock.engine.SimpleDate;
 import org.yccheok.jstock.engine.StockInfo;
 import org.yccheok.jstock.engine.StockServerFactory;
@@ -84,6 +87,18 @@ public class DividendSummaryJDialog extends javax.swing.JDialog implements Prope
         this.dividendSummary = new DividendSummary(dividendSummary);
         this.dividendSummaryAfterPressingOK = null;
         initComponents();
+        
+        ((TableRowSorter)this.jTable1.getRowSorter()).setStringConverter(new TableStringConverter() {
+
+            @Override
+            public String toString(TableModel model, int row, int column) {
+                if (model.getColumnClass(column) == StockInfo.class) {
+                    return ((StockInfo)model.getValueAt(row, column)).symbol.toString();
+                }
+                
+                return model.getValueAt(row, column).toString();
+            }
+        });
         
         // Sort by date, with latest comes first.
         final RowSorter<? extends TableModel> rowSorter = this.jTable1.getRowSorter();
@@ -581,9 +596,8 @@ public class DividendSummaryJDialog extends javax.swing.JDialog implements Prope
                 }                
                 duration = new Duration(startDate, endDate);
                 
-                List<StockServerFactory> stockServerFactories = MainFrame.getInstance().getStockServerFactories();
                 List<Dividend> suggestedDividends = new ArrayList<Dividend>();
-                for (StockServerFactory stockServerFactory : stockServerFactories) {
+                for (StockServerFactory stockServerFactory : Factories.INSTANCE.getStockServerFactories(code)) {
                     if (isCancelled()) {
                         break;
                     }

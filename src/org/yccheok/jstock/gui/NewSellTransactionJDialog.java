@@ -612,7 +612,7 @@ public class NewSellTransactionJDialog extends javax.swing.JDialog {
         final Date date = java.util.Calendar.getInstance().getTime();
 
         MainFrame mainFrame = MainFrame.getInstance();
-        double price = mainFrame.getPortfolioManagementJPanel().getStockPrice(_stock);
+        double price = mainFrame.getPortfolioManagementJPanel().getStockPrice(_stock.code);
 
         this.jTextField1.setText(symbol.toString());
         // So that the 1st character is being displayed.
@@ -955,7 +955,7 @@ public class NewSellTransactionJDialog extends javax.swing.JDialog {
             final DateField dateField = (DateField)jPanel3;
             final Date date = (Date)dateField.getValue();
             // Stock and date information is not important at this moment.
-            Contract.ContractBuilder builder = new Contract.ContractBuilder(Utils.getEmptyStock(Code.newInstance(name), Symbol.newInstance(name)), new SimpleDate(date));
+            Contract.ContractBuilder builder = new Contract.ContractBuilder(org.yccheok.jstock.engine.Utils.getEmptyStock(Code.newInstance(name), Symbol.newInstance(name)), new SimpleDate(date));
             Contract contract = builder.type(Contract.Type.Sell).quantity(unit).price(price).build();
 
             final double brokerFee = brokingFirm.brokerCalculate(contract);
@@ -1126,7 +1126,7 @@ public class NewSellTransactionJDialog extends javax.swing.JDialog {
         final double bestPrice = bestSellingValue / (double)unit;
 
         MainFrame mainFrame = MainFrame.getInstance();
-        double currentPrice = mainFrame.getPortfolioManagementJPanel().getStockPrice(stock);
+        double currentPrice = mainFrame.getPortfolioManagementJPanel().getStockPrice(stock.code);
 
         return bestPrice > currentPrice ? bestPrice : currentPrice;
     }

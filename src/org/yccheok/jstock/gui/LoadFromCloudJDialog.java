@@ -19,6 +19,7 @@
 
 package org.yccheok.jstock.gui;
 
+import com.google.api.client.auth.oauth2.Credential;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Font;
@@ -32,12 +33,8 @@ import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import javax.swing.Icon;
-import javax.swing.JEditorPane;
-import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.SwingWorker;
-import javax.swing.event.HyperlinkEvent;
-import javax.swing.event.HyperlinkListener;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.yccheok.jstock.gui.analysis.MemoryLogJDialog;
@@ -51,18 +48,16 @@ import org.yccheok.jstock.internationalization.MessagesBundle;
 public class LoadFromCloudJDialog extends javax.swing.JDialog {
 
     /** Creates new form LoadFromCloudJDialog */
-    public LoadFromCloudJDialog(java.awt.Frame parent, boolean modal) {
+    public LoadFromCloudJDialog(java.awt.Frame parent, boolean modal, Pair<Credential, String> credentialEx, boolean credentialFromDisk) {
         super(parent, modal);
         initComponents();
-        this.jLabel3.setVisible(false);
+        this.credentialEx = credentialEx;
+        this.jLabel1.setText(credentialEx.second);
         this.jLabel4.setVisible(false);
         this.jLabel5.setVisible(false);
-
-        final JStockOptions jStockOptions = MainFrame.getInstance().getJStockOptions();
-        if (jStockOptions.isRememberGoogleAccountEnabled()) {
-            this.jCheckBox1.setSelected(true);
-            this.jTextField1.setText(Utils.decrypt(jStockOptions.getGoogleUsername()));
-            this.jPasswordField1.setText(Utils.decrypt(jStockOptions.getGooglePassword()));
+        
+        if (false == credentialFromDisk) {
+            jButton1.doClick();
         }
     }
 
@@ -88,12 +83,7 @@ public class LoadFromCloudJDialog extends javax.swing.JDialog {
         jLabel5 = new javax.swing.JLabel();
         jPanel2 = new javax.swing.JPanel();
         jLabel1 = new javax.swing.JLabel();
-        jTextField1 = new javax.swing.JTextField();
-        jLabel2 = new javax.swing.JLabel();
-        jPasswordField1 = new javax.swing.JPasswordField();
-        jLabel6 = new javax.swing.JLabel();
-        jCheckBox1 = new javax.swing.JCheckBox();
-        jLabel7 = new javax.swing.JLabel();
+        jButton3 = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         java.util.ResourceBundle bundle = java.util.ResourceBundle.getBundle("org/yccheok/jstock/data/gui"); // NOI18N
@@ -115,6 +105,7 @@ public class LoadFromCloudJDialog extends javax.swing.JDialog {
 
         jButton1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/16x16/apply.png"))); // NOI18N
         jButton1.setText(bundle.getString("LoadFromCloudJDialog_OK")); // NOI18N
+        jButton1.setOpaque(false);
         jButton1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 jButton1ActionPerformed(evt);
@@ -133,19 +124,18 @@ public class LoadFromCloudJDialog extends javax.swing.JDialog {
 
         getContentPane().add(jPanel3, java.awt.BorderLayout.PAGE_END);
 
-        jPanel1.setLayout(new java.awt.BorderLayout(5, 5));
+        jPanel1.setLayout(new java.awt.BorderLayout());
 
         jPanel4.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT));
 
-        jLabel3.setForeground(new java.awt.Color(0, 0, 255));
-        jLabel3.setText(bundle.getString("LoadFromCloudJDialog_LoadingFromCloud...")); // NOI18N
+        jLabel3.setForeground(new java.awt.Color(255, 0, 0));
+        jLabel3.setText(bundle.getString("LoadFromCloudJDialog_WarningAllYourDataWillBeOverwriteByCloudData")); // NOI18N
         jPanel4.add(jLabel3);
 
         jLabel4.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/16x16/spinner.gif"))); // NOI18N
         jPanel4.add(jLabel4);
 
         jLabel5.setText(bundle.getString("WizardDownloadlIndicatorJPanel_ViewLog")); // NOI18N
-        this.jLabel3.setVisible(false);
         jLabel5.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 jLabel5MouseClicked(evt);
@@ -163,88 +153,33 @@ public class LoadFromCloudJDialog extends javax.swing.JDialog {
 
         jPanel2.setBorder(javax.swing.BorderFactory.createTitledBorder(bundle.getString("LoadFromCloudJDialog_GoogleAccount"))); // NOI18N
 
-        jLabel1.setText(bundle.getString("LoadFromCloudJDialog_Username")); // NOI18N
+        jLabel1.setBackground(new java.awt.Color(140, 196, 116));
+        jLabel1.setFont(getRobotoLightFont());
+        jLabel1.setForeground(new java.awt.Color(255, 255, 255));
+        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel1.setText("username@email.com");
+        jLabel1.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        jLabel1.setOpaque(true);
+        jPanel2.add(jLabel1);
 
-        jTextField1.addActionListener(new java.awt.event.ActionListener() {
+        jButton3.setText(bundle.getString("LoadFromCloudJDialog_SignOut")); // NOI18N
+        jButton3.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jTextField1ActionPerformed(evt);
+                jButton3ActionPerformed(evt);
             }
         });
+        jPanel2.add(jButton3);
 
-        jLabel2.setText(bundle.getString("SaveToCloudJDialog_Password")); // NOI18N
-
-        jPasswordField1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jPasswordField1ActionPerformed(evt);
-            }
-        });
-
-        jLabel6.setFont(jLabel6.getFont().deriveFont(jLabel6.getFont().getSize()-1f));
-        jLabel6.setText(bundle.getString("LoadFromCloudJDialog_EmailExample")); // NOI18N
-
-        jCheckBox1.setText(bundle.getString("LoadFromCloudJDialog_KeepMeSignedIn")); // NOI18N
-
-        jLabel7.setForeground(new java.awt.Color(255, 0, 0));
-        jLabel7.setText(bundle.getString("LoadFromCloudJDialog_WarningAllYourDataWillBeOverwriteByCloudData")); // NOI18N
-
-        javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
-        jPanel2.setLayout(jPanel2Layout);
-        jPanel2Layout.setHorizontalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jCheckBox1)
-                    .addGroup(jPanel2Layout.createSequentialGroup()
-                        .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel1)
-                            .addComponent(jLabel2))
-                        .addGap(10, 10, 10)
-                        .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jPasswordField1, javax.swing.GroupLayout.DEFAULT_SIZE, 177, Short.MAX_VALUE)
-                            .addComponent(jTextField1, javax.swing.GroupLayout.DEFAULT_SIZE, 177, Short.MAX_VALUE))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jLabel6))
-                    .addComponent(jLabel7))
-                .addContainerGap())
-        );
-        jPanel2Layout.setVerticalGroup(
-            jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addContainerGap()
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel1)
-                    .addComponent(jTextField1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel6))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel2)
-                    .addComponent(jPasswordField1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jLabel7)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jCheckBox1)
-                .addContainerGap(12, Short.MAX_VALUE))
-        );
-
-        jPanel1.add(jPanel2, java.awt.BorderLayout.CENTER);
+        jPanel1.add(jPanel2, java.awt.BorderLayout.NORTH);
 
         getContentPane().add(jPanel1, java.awt.BorderLayout.CENTER);
 
-        java.awt.Dimension screenSize = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
-        setBounds((screenSize.width-420)/2, (screenSize.height-334)/2, 420, 334);
+        setSize(new java.awt.Dimension(420, 243));
+        setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
 
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
         cancel();
-        // No matter Cancel or OK, once user untick, we will remove account
-        // information.
-        final JStockOptions jStockOptions = MainFrame.getInstance().getJStockOptions();
-        if (this.jCheckBox1.isSelected() == false) {
-            jStockOptions.setRememberGoogleAccountEnabled(false);
-            jStockOptions.setGoogleUsername("");
-            jStockOptions.setGooglePassword("");
-        }
     }//GEN-LAST:event_formWindowClosed
 
     private void cancel() {
@@ -275,57 +210,27 @@ public class LoadFromCloudJDialog extends javax.swing.JDialog {
     }//GEN-LAST:event_jLabel5MouseExited
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        String username = this.jTextField1.getText().trim();
-        if (username.length() == 0)
-        {
-            JOptionPane.showMessageDialog(this, MessagesBundle.getString("warning_message_username_cannot_be_empty"), MessagesBundle.getString("warning_title_username_cannot_be_empty"), JOptionPane.WARNING_MESSAGE);
-            this.jTextField1.requestFocus();
-            return;
-        }
-
-        username = Utils.toEmailIfPossible(username);
-        if (username == null) {
-            JOptionPane.showMessageDialog(this, MessagesBundle.getString("warning_message_invalid_email_address"), MessagesBundle.getString("warning_title_invalid_email_address"), JOptionPane.WARNING_MESSAGE);
-            this.jTextField1.requestFocus();
-            return;
-        }
-        
-        if (this.jPasswordField1.getPassword().length == 0)
-        {
-            JOptionPane.showMessageDialog(this, MessagesBundle.getString("warning_message_password_cannot_be_empty"), MessagesBundle.getString("warning_title_password_cannot_be_empty"), JOptionPane.WARNING_MESSAGE);
-            this.jPasswordField1.requestFocus();
-            return;
-        }
-
-        if (new String(this.jPasswordField1.getPassword()).trim().length() == 0)
-        {
-            JOptionPane.showMessageDialog(this, MessagesBundle.getString("warning_message_password_cannot_be_empty"), MessagesBundle.getString("warning_title_password_cannot_be_empty"), JOptionPane.WARNING_MESSAGE);
-            this.jPasswordField1.requestFocus();
-            return;
-        }
-
         this.jButton1.setEnabled(false);
-        this.jTextField1.setEnabled(false);
-        this.jPasswordField1.setEnabled(false);
-        this.jCheckBox1.setEnabled(false);
-
+        this.jButton3.setEnabled(false);
+        
         // Update GUI immediately. So that user will not feel our app is slow.
         jLabel3.setText(GUIBundle.getString("LoadFromCloudJDialog_LoadingFromCloud..."));
         jLabel4.setIcon(Icons.BUSY);
         jLabel3.setVisible(true);
         jLabel4.setVisible(true);
 
-        this.loadFromCloudTask = this.getLoadFromCloudTask(username);
+        this.loadFromCloudTask = this.getLoadFromCloudTask();
         this.loadFromCloudTask.execute();
     }//GEN-LAST:event_jButton1ActionPerformed
 
-    private void jPasswordField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jPasswordField1ActionPerformed
-        jButton1ActionPerformed(evt);
-    }//GEN-LAST:event_jPasswordField1ActionPerformed
-
-    private void jTextField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField1ActionPerformed
-        jButton1ActionPerformed(evt);
-    }//GEN-LAST:event_jTextField1ActionPerformed
+    private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
+        org.yccheok.jstock.google.Utils.logoutDrive();
+        
+        this.setVisible(false);
+        this.dispose();
+        
+        MainFrame.getInstance().loadFromCloud();
+    }//GEN-LAST:event_jButton3ActionPerformed
 
     private static class Status {
         public final String message;
@@ -342,7 +247,7 @@ public class LoadFromCloudJDialog extends javax.swing.JDialog {
         }
     }
     
-    private SwingWorker<Boolean, Status> getLoadFromCloudTask(final String username) {
+    private SwingWorker<Boolean, Status> getLoadFromCloudTask() {
         SwingWorker<Boolean, Status> worker = new SwingWorker<Boolean, Status>() {
             @Override
             protected void done() {
@@ -366,21 +271,10 @@ public class LoadFromCloudJDialog extends javax.swing.JDialog {
                 }
 
                 jButton1.setEnabled(true);
-                jTextField1.setEnabled(true);
-                jPasswordField1.setEnabled(true);
-                jCheckBox1.setEnabled(true);
+                jButton3.setEnabled(true);
 
                 if (result == true) {
                     JOptionPane.showMessageDialog(LoadFromCloudJDialog.this, GUIBundle.getString("LoadFromCloudJDialog_Success"));
-
-                    final JStockOptions jStockOptions = MainFrame.getInstance().getJStockOptions();
-                    // Only save account information when cloud operation success.
-                    if (jCheckBox1.isSelected() == true) {
-                        jStockOptions.setRememberGoogleAccountEnabled(true);
-                        jStockOptions.setGoogleUsername(Utils.encrypt(username));
-                        jStockOptions.setGooglePassword(Utils.encrypt(new String(jPasswordField1.getPassword())).trim());
-                    }
-                    // Close the dialog once cloud operation success.
                     setVisible(false);
                     dispose();
                 }
@@ -416,28 +310,16 @@ public class LoadFromCloudJDialog extends javax.swing.JDialog {
 
                 publish(Status.newInstance(GUIBundle.getString("LoadFromCloudJDialog_LoadingFromCloud..."), Icons.BUSY));
 
-                final String password = new String(jPasswordField1.getPassword()).trim();
-
-                Utils.CloudFile cloudFile = Utils.loadFromGoogleDoc(username, password);
+                Utils.CloudFile cloudFile = Utils.loadFromGoogleDrive(credentialEx.first);
                 if (cloudFile == null) {
                     // Perhaps we should load from legacy cloud server, and help
                     // user to perform migration to Google Doc server.
-                    cloudFile = Utils.loadFromCloud(username, password);
+                    cloudFile = Utils.loadFromLegacyGoogleDrive(credentialEx.first);
                     if (cloudFile == null) {                        
                         publish(Status.newInstance(GUIBundle.getString("LoadFromCloudJDialog_LoadingFromCloudFail"), Icons.ERROR));
                         return false;
                     } else {
-                        if (false == Utils.saveToGoogleDoc(username, password, cloudFile.file)) {
-                            // Migration fail.
-                            LoadFromCloudJDialog.this.showMessageBoxWithGoogleDocLink();
-                            
-                        } else {
-                            // Migration success.
-                            JOptionPane.showMessageDialog(LoadFromCloudJDialog.this, 
-                                    MessagesBundle.getString("info_message_migration_to_google_doc_server_success"), 
-                                    MessagesBundle.getString("info_title_migration_to_google_doc_server_success"), 
-                                    JOptionPane.INFORMATION_MESSAGE);
-                        }
+                        Utils.saveToGoogleDrive(credentialEx.first, cloudFile.file);
                     }
                 }
                 /* Check for checksum. */
@@ -512,35 +394,11 @@ public class LoadFromCloudJDialog extends javax.swing.JDialog {
         this.memoryLog.add(s);
     }
 
-    private void showMessageBoxWithGoogleDocLink() {
-        // for copying style
-        JLabel label = new JLabel();
-        Font font = label.getFont();
-
-        // create some css from the label's font
-        StringBuilder style = new StringBuilder("font-family:" + font.getFamily() + ";");
-        style.append("font-weight:").append(font.isBold() ? "bold" : "normal").append(";");
-        style.append("font-size:").append(font.getSize()).append("pt;");
-
-        // html content
-        String html = MessageFormat.format(MessagesBundle.getString("info_message_register_google_doc"), style);
-        JEditorPane ep = new JEditorPane("text/html", html);
-
-        // handle link events
-        ep.addHyperlinkListener(new HyperlinkListener()
-        {
-            @Override
-            public void hyperlinkUpdate(HyperlinkEvent e)
-            {
-                Utils.launchWebBrowser(e);
-            }
-        });
-        ep.setEditable(false);
-        ep.setBackground(label.getBackground());
-
-        // show
-        JOptionPane.showMessageDialog(null, ep, MessagesBundle.getString("info_title_register_google_doc"), JOptionPane.INFORMATION_MESSAGE);        
+    private Font getRobotoLightFont() {
+        return Utils.getRobotoLightFont().deriveFont((float)18);
     }
+       
+    private final Pair<Credential, String> credentialEx;
     
     private volatile SwingWorker<Boolean, Status> loadFromCloudTask = null;
     private final List<String> memoryLog = new ArrayList<String>();
@@ -550,22 +408,17 @@ public class LoadFromCloudJDialog extends javax.swing.JDialog {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
-    private javax.swing.JCheckBox jCheckBox1;
+    private javax.swing.JButton jButton3;
     private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
-    private javax.swing.JLabel jLabel6;
-    private javax.swing.JLabel jLabel7;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
-    private javax.swing.JPasswordField jPasswordField1;
-    private javax.swing.JTextField jTextField1;
     private org.jdesktop.swingx.JXHeader jXHeader1;
     // End of variables declaration//GEN-END:variables
 
