@@ -38,7 +38,6 @@ import org.yccheok.jstock.portfolio.BrokingFirm;
  * @author yccheok
  */
 public class JStockOptions {
-
     /**
      * Data structure to carry location, size and state of a JFrame.
      */
@@ -127,7 +126,8 @@ public class JStockOptions {
         this.proxyPort = -1;
         this.scanningSpeed = 10000;
         this.alertSpeed = 5;
-        this.looknFeel = "com.sun.java.swing.plaf.windows.WindowsLookAndFeel";
+        this.looknFeel = null;
+        this.alwaysOnTop = false;
         this.country = Country.Malaysia;
         this.soundEnabled = false;
 
@@ -191,8 +191,11 @@ public class JStockOptions {
     private int proxyPort;
     private int scanningSpeed;  /* In ms. */
     private int alertSpeed;
+    // Opps! Spelling mistake (Should be lookNFeel). However, due to XML
+    // serialization compatibility, we decide not to fix it.
     private String looknFeel;
-    
+    private boolean alwaysOnTop;
+
     private Color normalTextForegroundColor;
     private Color lowerNumericalValueForegroundColor;
     private Color higherNumericalValueForegroundColor;
@@ -335,6 +338,7 @@ public class JStockOptions {
         this.scanningSpeed = jStockOptions.scanningSpeed;
         this.alertSpeed = jStockOptions.alertSpeed;
         this.looknFeel = jStockOptions.looknFeel;
+        this.alwaysOnTop = jStockOptions.alwaysOnTop;
 
         this.normalTextForegroundColor = jStockOptions.normalTextForegroundColor;
         this.lowerNumericalValueForegroundColor = jStockOptions.lowerNumericalValueForegroundColor;
@@ -459,6 +463,7 @@ public class JStockOptions {
         jStockOptions.scanningSpeed = this.scanningSpeed;
         jStockOptions.alertSpeed = this.alertSpeed;
         jStockOptions.looknFeel = this.looknFeel;
+        jStockOptions.alwaysOnTop = this.alwaysOnTop;
 
         jStockOptions.normalTextForegroundColor = this.normalTextForegroundColor;
         jStockOptions.lowerNumericalValueForegroundColor = this.lowerNumericalValueForegroundColor;
@@ -761,10 +766,18 @@ public class JStockOptions {
         return looknFeel;
     }
     
-    public void setLookNFeel(String looknFeel) {
+    public void setLooknFeel(String looknFeel) {
         this.looknFeel = looknFeel;
     }
-    
+
+    public boolean isAlwaysOnTop() {
+        return alwaysOnTop;
+    }
+
+    public void setAlwaysOnTop(boolean alwaysOnTop) {
+        this.alwaysOnTop = alwaysOnTop;
+    }
+
     public boolean isSingleIndicatorAlert() {
         return singleIndicatorAlert;
     }

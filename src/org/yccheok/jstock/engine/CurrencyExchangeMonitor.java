@@ -21,10 +21,8 @@ package org.yccheok.jstock.engine;
 
 import java.util.EnumMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.yccheok.jstock.network.Utils.Type;
 
 /**
  *
@@ -201,7 +199,7 @@ public class CurrencyExchangeMonitor extends Subject<CurrencyExchangeMonitor, Do
                         }   // for
 
                         try {
-                            Thread.sleep(org.yccheok.jstock.gui.MainFrame.getInstance().getJStockOptions().getScanningSpeed());
+                            Thread.sleep(org.yccheok.jstock.gui.JStock.getInstance().getJStockOptions().getScanningSpeed());
                         } catch (InterruptedException ex) {
                             log.error(null, ex);
                             if (isRefresh == false) {
@@ -265,6 +263,7 @@ public class CurrencyExchangeMonitor extends Subject<CurrencyExchangeMonitor, Do
         countryToCurrencyCode.put(Country.France, "EUR");
         countryToCurrencyCode.put(Country.Germany, "EUR");
         countryToCurrencyCode.put(Country.HongKong, "HKD");
+        countryToCurrencyCode.put(Country.Hungary, "HUF");
         countryToCurrencyCode.put(Country.India, "INR");
         countryToCurrencyCode.put(Country.Indonesia, "IDR");
         countryToCurrencyCode.put(Country.Israel, "ILS");
