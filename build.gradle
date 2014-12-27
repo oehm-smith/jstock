@@ -17,7 +17,7 @@ targetCompatibility = 1.7
 mainClassName='org.yccheok.jstock.gui.JStock'
 archivesBaseName='jstock'
 version='1.1.0'
-libsDirName='dist'
+libsDirName='../dist'
 
 repositories {
     mavenCentral()
@@ -115,33 +115,11 @@ task copyToLib(type: Copy) {
 build.dependsOn(copyToLib)
 assemble.dependsOn(copyToLib)
 
-// The current jstock project has its distribution going to a <project>/dist directory.  Run this explicitly
-task distribute(type: Copy) {
-	from "$libsDir"
-	into "$projectDir/dist"
-}
-
-task cleanDistribute(type: Delete) {
-	delete "$projectDir/dist"
-}
-
-
-distribute.dependsOn(cleanDistribute)
-distribute.dependsOn(build)
-
 jar {
-	dependsOn configurations.runtime
-    //from {
-    //    configurations.runtime
-    //} {
-        //exclude "META-INF/*.SF"
-        // ..
-    //}
-//	configurations.compile.each { print "${it.getName()} "}; println('')
+	// the copyToLib task will copy the dependencies used by the .jar
     manifest {
         attributes (
         	'Main-Class': 'org.yccheok.jstock.gui.JStock',
-			//'Class-Path': configurations.compile.collect { it.getName() }.join(' libs/')
 			'Class-Path': configurations.compile.collect { "libs/${it.getName()}"}.join(' ')
 		)
     }

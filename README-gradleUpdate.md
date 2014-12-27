@@ -99,19 +99,11 @@ TODO
 
     gradle clean build
 
-This runs the tests, creates a `build/dist/jstock-x.y.jar` and creates a `build/dist/lib/` with all the dependencies in it.
+This runs the tests, creates a `dist/jstock-x.y.jar` and creates a `dist/lib/` with all the dependencies in it.
 
     gradle clean assemble
 
 is the same except it doesn't run the tests (which is somtimes nice).
-
-These tasks here are all general `gradle` ones.  The `distribute` one I describe next have been purposefully crafted for `jstock`.  
-
-To build jstock under gradle like it was under Netbeans, the command:
-
-    gradle distribute
-
-will create a `<project>/dist` directory with `jstock-x.y.jar` and `libs` dir.  
 
 ## Installers
 
