@@ -2365,7 +2365,8 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
         return new org.yccheok.jstock.engine.Observer<ExchangeRateMonitor, List<ExchangeRate>>() {
             @Override
             public void update(ExchangeRateMonitor subject, java.util.List<ExchangeRate> arg) {
-                JStock.getInstance().setStatusBarExchangeRate(arg);
+            	// TODO - yccheok to fix commented out lines
+//                JStock.getInstance().setStatusBarExchangeRate(arg);
                 updateWealthHeader();
             }
         };
@@ -2535,10 +2536,11 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
         // Get the currency exchange rate.
         double exchangeRate = 1.0;
         if (jStockOptions.isCurrencyExchangeEnable(jStockOptions.getCountry())) {
-            final CurrencyExchangeMonitor _currencyExchangeMonitor = this.currencyExchangeMonitor;
-            if (_currencyExchangeMonitor != null) {
-                exchangeRate = _currencyExchangeMonitor.getExchangeRate();
-            }
+        	// TODO - yccheok to fix commented out lines
+//            final CurrencyExchangeMonitor _currencyExchangeMonitor = this.currencyExchangeMonitor;
+//            if (_currencyExchangeMonitor != null) {
+//                exchangeRate = _currencyExchangeMonitor.getExchangeRate();
+//            }
         }
         return exchangeRate;
     }
@@ -2673,10 +2675,11 @@ public class PortfolioManagementJPanel extends javax.swing.JPanel {
     }
 
     public void refreshCurrencyExchangeMonitor() {
-        CurrencyExchangeMonitor _currencyExchangeMonitor = this.currencyExchangeMonitor;
-        if (_currencyExchangeMonitor != null) {
-            _currencyExchangeMonitor.refresh();
-        }
+    	// TODO - yccheok to fix commented out lines
+//        CurrencyExchangeMonitor _currencyExchangeMonitor = this.currencyExchangeMonitor;
+//        if (_currencyExchangeMonitor != null) {
+//            _currencyExchangeMonitor.refresh();
+//        }
     }
     
     public void refreshRealTimeStockMonitor() {
