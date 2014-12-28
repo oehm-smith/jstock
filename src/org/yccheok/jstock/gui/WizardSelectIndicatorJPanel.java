@@ -23,8 +23,11 @@
 package org.yccheok.jstock.gui;
 
 import java.text.MessageFormat;
-import javax.swing.*;
-import org.yccheok.jstock.analysis.*;
+
+import javax.swing.DefaultListModel;
+import javax.swing.SwingUtilities;
+
+import org.yccheok.jstock.analysis.OperatorIndicator;
 import org.yccheok.jstock.internationalization.GUIBundle;
 
 /**
@@ -33,7 +36,9 @@ import org.yccheok.jstock.internationalization.GUIBundle;
  */
 public class WizardSelectIndicatorJPanel extends javax.swing.JPanel {
     
-    /** Creates new form WizardSelectIndicatorJPanel */
+	private static final long serialVersionUID = 1507808411327444181L;
+	
+	/** Creates new form WizardSelectIndicatorJPanel */
     public WizardSelectIndicatorJPanel() {
         initComponents();
     }
@@ -49,7 +54,7 @@ public class WizardSelectIndicatorJPanel extends javax.swing.JPanel {
         jXHeader1 = new org.jdesktop.swingx.JXHeader();
         jPanel1 = new javax.swing.JPanel();
         jScrollPane1 = new javax.swing.JScrollPane();
-        jList1 = new javax.swing.JList();
+        jList1 = new javax.swing.JList<String>();
         jLabel1 = new javax.swing.JLabel();
 
         setLayout(new java.awt.BorderLayout(5, 5));
@@ -60,7 +65,7 @@ public class WizardSelectIndicatorJPanel extends javax.swing.JPanel {
         jXHeader1.setTitle(bundle.getString("Main_WizardSelectIndicatorJPanel_SelectStockIndicators")); // NOI18N
         add(jXHeader1, java.awt.BorderLayout.NORTH);
 
-        jList1.setModel(new javax.swing.DefaultListModel());
+        jList1.setModel(new DefaultListModel<String>());
         jList1.addListSelectionListener(new javax.swing.event.ListSelectionListener() {
             public void valueChanged(javax.swing.event.ListSelectionEvent evt) {
                 jList1ValueChanged(evt);
@@ -115,10 +120,8 @@ public class WizardSelectIndicatorJPanel extends javax.swing.JPanel {
     }
     
     public java.util.List<String> getSelectedProjects() {
-        final javax.swing.ListModel listModel = jList1.getModel();
-        final javax.swing.DefaultListModel defaultListModel = (javax.swing.DefaultListModel)listModel;
-        
-        Object[] selected = this.jList1.getSelectedValues();
+        @SuppressWarnings("deprecation")
+		Object[] selected = this.jList1.getSelectedValues();
         
         java.util.List<String> list = new java.util.ArrayList<String>();
         
@@ -140,8 +143,7 @@ public class WizardSelectIndicatorJPanel extends javax.swing.JPanel {
         
         SwingUtilities.invokeLater(new Runnable() {
            public void run() {
-                final javax.swing.ListModel listModel = jList1.getModel();
-                final javax.swing.DefaultListModel defaultListModel = (javax.swing.DefaultListModel)listModel;
+                final DefaultListModel<String> defaultListModel = (DefaultListModel<String>)jList1.getModel();
                 defaultListModel.removeAllElements();
                 
                 final int numOfProject = alertIndicatorProjectManager.getNumOfProject();
@@ -164,7 +166,7 @@ public class WizardSelectIndicatorJPanel extends javax.swing.JPanel {
     
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel jLabel1;
-    private javax.swing.JList jList1;
+    private javax.swing.JList<String> jList1;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JScrollPane jScrollPane1;
     private org.jdesktop.swingx.JXHeader jXHeader1;

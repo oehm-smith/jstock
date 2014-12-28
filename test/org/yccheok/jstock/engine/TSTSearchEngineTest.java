@@ -87,7 +87,7 @@ public class TSTSearchEngineTest extends TestCase {
      */
     public void testPut() {
         {
-        TSTSearchEngine engine = new TSTSearchEngine();
+        TSTSearchEngine<Name> engine = new TSTSearchEngine<>();
         engine.put(new Name("efg"));
         engine.put(new Name("abc"));
         // Duplication will be ignored.
@@ -96,7 +96,7 @@ public class TSTSearchEngineTest extends TestCase {
         assertEquals(1, result.size());
         }
         {
-        TSTSearchEngine engine = new TSTSearchEngine();
+        TSTSearchEngine<Name> engine = new TSTSearchEngine<>();
         engine.put(new Name("efg"));
         engine.put(new Name("abc"));
         // Different case do not considered as duplication.
@@ -105,7 +105,7 @@ public class TSTSearchEngineTest extends TestCase {
         assertEquals(2, result.size());
         }
         {
-        TSTSearchEngine engine = new TSTSearchEngine();
+        TSTSearchEngine<Name> engine = new TSTSearchEngine<>();
         engine.put(new Name(bundle.getString("ni_men")));
         engine.put(new Name(bundle.getString("wo_men")));
         // Duplication will be ignored.
