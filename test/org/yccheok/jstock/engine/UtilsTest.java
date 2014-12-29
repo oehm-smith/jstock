@@ -6,6 +6,8 @@
 
 package org.yccheok.jstock.engine;
 
+import java.awt.GraphicsEnvironment;
+
 import junit.framework.TestCase;
 
 import org.junit.Assert;
@@ -22,15 +24,13 @@ public class UtilsTest extends TestCase {
         super(testName);
     }
     
+    boolean headless_check; 
+    
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        try {
-        	JStock.getInstance().initJStockOptions(new JStockOptions());
-        } catch (java.awt.HeadlessException e) {
-        	// This happens when run on the CI Server so just ignore these tests in such an environment
-        	Assert.assertTrue("java.awt.HeadlessException will happen on the CI Server - just assert True", true);
-        }
+        headless_check = GraphicsEnvironment.isHeadless();
+       	JStock.getInstance().initJStockOptions(new JStockOptions());
     }
     
     @Override
@@ -42,6 +42,10 @@ public class UtilsTest extends TestCase {
      * Test of toCompleteUnitedStatesGoogleFormat method, of class Utils.
      */
     public void testToCompleteUnitedStatesGoogleFormat() {
+    	if (headless_check) {
+    		// CI Servers run in headless mode where there is no keyboard or monitor (eg. Swing).  If in such an environment just ignore these tests
+    		Assert.assertTrue("java.awt.HeadlessException will happen on the CI Server - just assert True", true);
+    	}
         System.out.println("toCompleteUnitedStatesGoogleFormat");
         
         Code code = Code.newInstance("MCD");
@@ -64,6 +68,10 @@ public class UtilsTest extends TestCase {
      * Test of toGoogleFormat method, of class Utils.
      */
     public void testToGoogleFormat() {
+    	if (headless_check) {
+    		// CI Servers run in headless mode where there is no keyboard or monitor (eg. Swing).  If in such an environment just ignore these tests
+    		Assert.assertTrue("java.awt.HeadlessException will happen on the CI Server - just assert True", true);
+    	}
         System.out.println("toGoogleFormat");
 
         Code code = Code.newInstance("^DJI");
