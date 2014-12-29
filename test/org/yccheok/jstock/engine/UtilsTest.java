@@ -33,6 +33,7 @@ public class UtilsTest extends TestCase {
         if (headless_check) {
         	// CI Servers run in headless mode where there is no keyboard or monitor (eg. Swing).  If in such an environment just ignore these tests
         	Assert.assertTrue("java.awt.HeadlessException will happen on the CI Server - just assert True", true);
+        	throw new RuntimeException("Does the CI ever reach this code");
         }
        	JStock.getInstance().initJStockOptions(new JStockOptions());
     }
