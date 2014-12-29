@@ -30,6 +30,10 @@ public class UtilsTest extends TestCase {
     protected void setUp() throws Exception {
         super.setUp();
         headless_check = GraphicsEnvironment.isHeadless();
+        if (headless_check) {
+        	// CI Servers run in headless mode where there is no keyboard or monitor (eg. Swing).  If in such an environment just ignore these tests
+        	Assert.assertTrue("java.awt.HeadlessException will happen on the CI Server - just assert True", true);
+        }
        	JStock.getInstance().initJStockOptions(new JStockOptions());
     }
     
@@ -42,10 +46,6 @@ public class UtilsTest extends TestCase {
      * Test of toCompleteUnitedStatesGoogleFormat method, of class Utils.
      */
     public void testToCompleteUnitedStatesGoogleFormat() {
-    	if (headless_check) {
-    		// CI Servers run in headless mode where there is no keyboard or monitor (eg. Swing).  If in such an environment just ignore these tests
-    		Assert.assertTrue("java.awt.HeadlessException will happen on the CI Server - just assert True", true);
-    	}
         System.out.println("toCompleteUnitedStatesGoogleFormat");
         
         Code code = Code.newInstance("MCD");
@@ -68,10 +68,6 @@ public class UtilsTest extends TestCase {
      * Test of toGoogleFormat method, of class Utils.
      */
     public void testToGoogleFormat() {
-    	if (headless_check) {
-    		// CI Servers run in headless mode where there is no keyboard or monitor (eg. Swing).  If in such an environment just ignore these tests
-    		Assert.assertTrue("java.awt.HeadlessException will happen on the CI Server - just assert True", true);
-    	}
         System.out.println("toGoogleFormat");
 
         Code code = Code.newInstance("^DJI");
