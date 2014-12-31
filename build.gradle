@@ -34,12 +34,17 @@ sourceSets {
             srcDir 'src'
         }
         resources {
-            srcDir 'resources'
+        	// this will include only files that are resourcey (not .java)
+        	srcDir 'src'
         }
     }
     test {
         java {
             srcDir 'test'
+        }
+        resources {
+        	// this will include only files that are resourcey (not .java)
+        	srcDir 'test'
         }
     }
 }
