@@ -225,6 +225,4 @@ public class CodeBucketListsTest extends TestCase {
         assertEquals(Code.newInstance("4.to"), codes.get(1));          
     }
     
-    dingo;
-    
 }
