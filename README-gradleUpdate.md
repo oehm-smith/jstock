@@ -5,6 +5,10 @@
 
 This section describes how to check out the source for jstock.  Navigate to [https://github.com/yccheok/jstock](https://github.com/yccheok/jstock) and clone the project using your git client.
 
+At the moment the work for this is on the `AddGradleBuild` branch.  So you need to check this out after the project has been cloned.  On the command-line execute this:
+
+    git checkout AddGradleBuild
+
 ## Setup
 
 This section describes how to setup jstock driven by gradle in the various IDEs. 
@@ -47,11 +51,18 @@ TODO though I'm sure that InteliJ treats Gradle projects as first-class citizens
 
 This section describes how to run jstock driven by gradle in the various IDEs and from the command-line.
 
+Be aware that all versions of JStock - the currently released version or a fork such as this, will use the same database.  If you want to preserve it in some state be sure to copy or move it out of the way.  On the Mac the database is in `.jstock` in the users home directory.  In Windows and Linux the same should be true.
+
 ### Eclipse
 
 TODO.  It should be as simple as the following though it didn't work.
 
 `Run > Configurations > gradle run > new > Give it a name > Apply > Run`.  However this errors and the workspace seems to get in the way.  TODO to work this out.
+
+Alternatively you can run it directly through the Gradle eclipse plugin:
+# Right-Click on Project > Gradle > Tasks Quick Launcher
+# Make sure the jstock (jstockOehmSmithFork) is selected in the `project` drop-down
+# Type `run` for the task and hit enter.  JStock should start
  
 ### Netbeans
 
